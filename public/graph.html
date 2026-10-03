@@ -51,7 +51,7 @@
   @media (max-width: 820px) {
     .plot { padding: 12px 8px 18px; border-bottom: 2px solid var(--ink); }
     .pin-score { font-size: 52px; }
-    .zone-name { font-size: 19px; }
+    .zone-name { font-size: 19px; stroke-width: 9; }
     .zone-name.quiet { font-size: 15px; }
     .axis { font-size: 19px; }
     .axis tspan, .end { font-size: 14.5px; }
@@ -63,7 +63,7 @@
   <section class="panel">
     <a class="mark" href="/" id="name">Bearing</a>
     <h1>The problem counts twice as much as the fix.</h1>
-    <p class="formula">score = 10 x problem - 5 x fix</p>
+    <p class="formula">score = 10 × problem − 5 × fix</p>
     <div class="pins">
       <div class="pin a"><span class="pin-letter">A</span><span class="pin-score" id="a-score">25</span><div><p class="pin-what" id="a-what"></p><p class="pin-math" id="a-math"></p></div></div>
       <div class="pin b"><span class="pin-letter">B</span><span class="pin-score" id="b-score">65</span><div><p class="pin-what" id="b-what"></p><p class="pin-math" id="b-math"></p></div></div>
@@ -102,7 +102,7 @@
       const { p, f } = pins[k];
       $(`${k}-score`).textContent = score(p, f);
       $(`${k}-what`).textContent = `${sizeWord(p)} problem, ${fixWord(f)}`;
-      $(`${k}-math`).textContent = `10 x ${p} - 5 x ${f}`;
+      $(`${k}-math`).textContent = `10 × ${p} − 5 × ${f}`;
     }
     const d = score(pins.b.p, pins.b.f) - score(pins.a.p, pins.a.f);
     $("gap").textContent = d === 0 ? "A and B tie." : `${d > 0 ? "B" : "A"} wins by ${Math.abs(d)}.`;
@@ -174,7 +174,7 @@
     };
     along(70, 0.3, "build it", "zone-name");
     along(40, 0.3, "sharpen it", "zone-name");
-    along(0, phone ? 5.4 : 4.4, phone ? "scores 0" : "scores 0: the fix costs double the pain", "zone-name quiet");
+    along(0, phone ? 5.4 : 4.4, phone ? "scores 0" : "scores 0: the fix costs double the problem", "zone-name quiet");
 
     for (const k of ["a", "b"]) {
       const { p, f } = pins[k];

@@ -26,6 +26,7 @@
   let seenRaw = "";
   let opening = true; // the first paint grows the trails from the ground up, once
   let spots = new Map(); // id -> { x, y, color, idea, trunk, branch }
+  let laneStops = []; // where each lane's trail sits, for settling a sideways pan on a phone
 
   // Titles are measured, not guessed, so a label is only cut when it truly does not fit.
   const ruler = document.createElement("canvas").getContext("2d");
@@ -40,13 +41,11 @@
       const n = lines.length - 1;
       const next = (lines[n] + " " + w).trim();
       if (fits(next, n) || !lines[n]) lines[n] = next;
-      else if (lines.length < 2) lines.push(w);
-      else {
-        lines[1] += " " + w;
-        break;
-      }
+      else if (lines.length < 3) lines.push(w);
+      else lines[n] += " " + w;
     }
-    if (lines[1]) while (lines[1].length > 2 && !fits(lines[1], 1)) lines[1] = lines[1].replace(/.…?$/, "").trimEnd() + "…";
+    const n = lines.length - 1;
+    while (lines[n].length > 2 && !fits(lines[n], n)) lines[n] = lines[n].replace(/.…?$/, "").trimEnd() + "…";
     return lines;
   }
 
@@ -87,16 +86,26 @@
     spots = new Map();
 
     // Lanes: one per branch, grouped by trunk.
+    laneStops = [];
     let cursor = padL;
     lanes.forEach((lane, n) => {
       if (n && lane.ti !== lanes[n - 1].ti) cursor += trunkGap;
       lane.x = cursor + 14;
       cursor += LW;
-      // Highest score on top. Where two would overlap, nudge them apart but keep the order.
-      const pts = [...lane.ideas].sort((a, b) => b.score - a.score || a.at.localeCompare(b.at)).map((idea) => ({ idea, y: y(idea.score) }));
-      for (let i = 1; i < pts.length; i++) pts[i].y = Math.max(pts[i].y, pts[i - 1].y + type.gap);
-      const floor = y0 - 20;
-      for (let i = pts.length - 1; i >= 0; i--) pts[i].y = Math.min(pts[i].y, i === pts.length - 1 ? floor : pts[i + 1].y - type.gap);
+      // Highest score on top. Each label is wrapped first, so it claims exactly the height it needs.
+      const pts = [...lane.ideas]
+        .sort((a, b) => b.score - a.score || a.at.localeCompare(b.at))
+        .map((idea) => {
+          const numW = span(String(idea.score), type.num, 900);
+          const lines = wrap(idea.title, LW - 16 - numW - 7 - 8, LW - 16 - 8, type.ttl);
+          return { idea, y: y(idea.score), lines, numW, h: type.num + 7 + (lines.length - 1) * type.line };
+        });
+      // Where two would overlap, nudge them apart but keep the order.
+      for (let i = 1; i < pts.length; i++) pts[i].y = Math.max(pts[i].y, pts[i - 1].y + pts[i - 1].h);
+      for (let i = pts.length - 1; i >= 0; i--) {
+        const under = i === pts.length - 1 ? y0 - 16 - (pts[i].lines.length - 1) * type.line : pts[i + 1].y - pts[i].h;
+        pts[i].y = Math.min(pts[i].y, under);
+      }
       // A nudge must not carry an idea across a decision line: a 70 is drawn above "build it", never under it.
       pts.forEach((p, i) => {
         const wall = p.idea.score >= 70 ? y(70) : p.idea.score >= 40 ? y(40) : Infinity;
@@ -105,6 +114,7 @@
       });
       lane.pts = pts;
       lane.peak = (pts[0]?.y ?? y0 - 24) - 24;
+      laneStops.push(lane.x);
     });
 
     // The land. One ridge: a summit over each branch's best idea, a valley between branches,
@@ -137,7 +147,9 @@
     const defs = el("defs");
     const clip = el("clipPath", { id: "land" });
     clip.append(el("path", { d: land }));
-    defs.append(clip);
+    const gaps_ = el("mask", { id: "words", maskUnits: "userSpaceOnUse", x: 0, y: 0, width: W, height: H });
+    gaps_.append(el("rect", { x: 0, y: 0, width: W, height: H, fill: "#fff" }));
+    defs.append(clip, gaps_);
     svg.append(defs);
     svg.append(el("path", { class: "land", d: land }));
     // Elevation tints, the way a relief map does it: lowland, the middle band, and summits past 70 in orange.
@@ -154,7 +166,7 @@
     }
     for (const [s] of CALLS.slice(0, 2)) relief.append(el("path", { class: "band-edge", d: `M0,${y(s)} H${W}` }));
     svg.append(relief);
-    svg.append(el("path", { class: "ridge", d: ridge }));
+    svg.append(el("path", { class: "ridge", d: ridge, mask: "url(#words)" }));
 
     // The scale that names the lines. It stays put while the map pans under it.
     const gutter = $("gutter");
@@ -190,7 +202,7 @@
         const grow = opening ? { pathLength: 1, style: `animation-delay:${ti * 110}ms` } : {};
         trails.append(el("path", { class: `casing${opening ? " grow" : ""}`, d, ...grow }), el("path", { class: `trail${opening ? " grow" : ""}`, d, stroke: color, ...grow }));
         names.append(el("text", { class: "branch-name", x: lane.x + 10, y: y0 + 34, style: `fill:${color}` }, lane.branch));
-        for (const p of lane.pts) spots.set(p.idea.id, { x: lane.x, y: p.y, color, idea: p.idea, trunk: lane.trunk, branch: lane.branch });
+        for (const p of lane.pts) spots.set(p.idea.id, { x: lane.x, y: p.y, color, idea: p.idea, trunk: lane.trunk, branch: lane.branch, lines: p.lines, numW: p.numW, h: p.h });
       }
       names.append(el("rect", { x: tx - 6, y: ty - 4, width: 12, height: 20, rx: 2.5, fill: color, stroke: "var(--paper)", "stroke-width": 2 }));
       names.append(el("text", { class: "trunk-name", x: tx + 14, y: ty + 13 }, t.name));
@@ -221,14 +233,19 @@
         "aria-label": `${idea.title}, ${idea.score} out of 100`,
         "data-id": id,
       });
-      g.append(el("rect", { class: "hit", x: x - 14, y: py - 20, width: LW - 4, height: type.gap - 2 }));
+      g.append(el("rect", { class: "hit", x: x - 14, y: py - 20, width: LW - 4, height: s.h + 8 }));
       g.append(el("circle", { class: "halo", cx: x, cy: py, r: 14 }));
       g.append(el("circle", { class: "dot", cx: x, cy: py, r: 7.5, ...(idea.sample ? { fill: "var(--sheet)", style: `stroke:${color}` } : { fill: color }) }));
-      const numW = span(String(idea.score), type.num, 900);
-      const [l1, l2] = wrap(idea.title, LW - 16 - numW - 7 - 8, LW - 16 - 8, type.ttl);
-      const text = el("text", { x: x + 16, y: py + type.num * 0.34 });
-      text.append(el("tspan", { class: "num", "font-size": type.num }, idea.score), el("tspan", { class: "ttl", dx: 7, "font-size": type.ttl }, l1));
-      if (l2) text.append(el("tspan", { class: "ttl", x: x + 16, dy: type.line, "font-size": type.ttl }, l2));
+      const base = py + type.num * 0.34;
+      const text = el("text", { x: x + 16, y: base });
+      text.append(el("tspan", { class: "num", "font-size": type.num }, idea.score), el("tspan", { class: "ttl", dx: 7, "font-size": type.ttl }, s.lines[0]));
+      s.lines.slice(1).forEach((l) => text.append(el("tspan", { class: "ttl", x: x + 16, dy: type.line, "font-size": type.ttl }, l)));
+      // The ridge line breaks behind words, the way a contour breaks for its own elevation label.
+      s.lines.forEach((l, k) => {
+        const w = k ? span(l, type.ttl, 700) : s.numW + 7 + span(l, type.ttl, 700);
+        const tall = k ? type.ttl : type.num;
+        gaps_.append(el("rect", { x: x + 11, y: base + k * type.line - tall * 0.86, width: w + 10, height: tall * 1.16, fill: "#000" }));
+      });
       g.append(text);
       svg.append(g);
     }
@@ -300,7 +317,7 @@
     const firstPaint = !$("map").childElementCount;
     render();
     // Keep the newest idea in view: on first paint, and whenever one lands.
-    const s = spots.get(fresh || (firstPaint && next.latest));
+    const s = spots.get(fresh || (firstPaint && marked()));
     const stage = $("stage");
     // On a phone, the idea's own lane becomes the first one after the scale. On a wide screen, center it.
     if (s) stage.scrollTo({ left: Math.max(0, phone() ? s.x - 114 : s.x - stage.clientWidth / 2), behavior: fresh ? "smooth" : "auto" });
@@ -333,6 +350,19 @@
     clearTimeout(resizing);
     resizing = setTimeout(() => data && render(), 120);
   }).observe($("stage"));
+
+  // On a phone, let a sideways pan settle with a lane just clear of the pinned scale, so no label hides a dot.
+  let settling;
+  $("stage").addEventListener("scroll", () => {
+    if (!phone()) return;
+    clearTimeout(settling);
+    settling = setTimeout(() => {
+      const stage = $("stage");
+      if (stage.scrollLeft < 8 || stage.scrollLeft > stage.scrollWidth - stage.clientWidth - 8) return;
+      const want = laneStops.map((x) => x - 114).reduce((best, x) => (Math.abs(x - stage.scrollLeft) < Math.abs(best - stage.scrollLeft) ? x : best), 0);
+      if (Math.abs(want - stage.scrollLeft) > 2) stage.scrollTo({ left: Math.max(0, want), behavior: "smooth" });
+    }, 140);
+  }, { passive: true });
 
   // ---- live: the server pushes the map the moment a text is scored
   function live() {

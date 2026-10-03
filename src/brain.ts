@@ -50,7 +50,7 @@ fix 0-10, what it costs a user to adopt THIS fix as described:
 Rate what they described, not the best version of it. Be honest and specific to who it is for. Use the whole scale.
 
 FIELDS
-- title: 2-4 plain words naming it, 24 characters at most, sentence case (capitalize the first word and proper nouns only). No quotes, no period.
+- title: 2-4 plain words naming it, 22 characters at most, sentence case (capitalize the first word and proper nouns only). No quotes, no period.
 - gist: one plain sentence: who it is for and the problem it solves. Leave out how it is delivered (app, text line, bot, site), so two ideas about the same problem read alike.
 - trunk: the broad area, 1-2 lowercase words. Reuse an existing trunk whenever one fits.
 - branch: the specific theme inside that trunk, 1-3 lowercase words. Reuse an existing branch whenever one fits. Make a new one only when nothing fits.

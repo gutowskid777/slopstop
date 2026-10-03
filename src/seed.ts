@@ -17,7 +17,7 @@ const rows: [string, string, string, number, number][] = [
   ["campus life", "study spots", "Study group matcher", 4, 6],
   ["money", "getting paid", "Invoice chaser", 9, 2],
   ["money", "getting paid", "Club dues collector", 7, 3],
-  ["money", "getting paid", "Tutor payment reminders", 5, 2],
+  ["money", "getting paid", "Tutor pay reminders", 5, 2],
   ["money", "splitting costs", "Split rent by text", 8, 3],
   ["money", "splitting costs", "Trip cost splitter", 4, 3],
   ["money", "splitting costs", "Roommate grocery ledger", 3, 5],
