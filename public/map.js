@@ -22,6 +22,9 @@
   let known = null; // ids already drawn, so only a real arrival animates
   let picked = null; // the waypoint someone tapped; null means follow the newest
   let landing = null;
+  let box = ""; // the map's size at the last draw, so only a real size change redraws
+  let seenRaw = "";
+  let opening = true; // the first paint grows the trails from the ground up, once
   let spots = new Map(); // id -> { x, y, color, idea, trunk, branch }
 
   // Two short lines of title next to the score. The full title is on the sign.
@@ -52,11 +55,12 @@
 
     const H = Math.max(stage.clientHeight, 540);
     const view = stage.clientWidth;
+    box = `${view}x${stage.clientHeight}`;
     const small = phone();
-    const padL = small ? 92 : 112, padR = small ? 12 : 20, top = 44, foot = 104, trunkGap = small ? 14 : 22;
+    const padL = small ? 92 : 112, padR = small ? 12 : 16, top = 44, foot = 104, trunkGap = small ? 14 : 18;
     const gaps = Math.max(0, data.trunks.length - 1) * trunkGap;
     // On a phone exactly two lanes fit the screen, and the map pans sideways like a map should.
-    const LW = small ? Math.floor((view - padL - 6) / 2) : Math.max(140, Math.min(210, (view - padL - padR - gaps) / Math.max(1, lanes.length)));
+    const LW = small ? Math.floor((view - padL - 6) / 2) : Math.max(132, Math.min(210, (view - padL - padR - gaps) / Math.max(1, lanes.length)));
     const W = Math.max(view, padL + lanes.length * LW + gaps + padR);
     const y0 = H - foot;
     const y = (s) => top + (1 - s / 100) * (y0 - top);
@@ -125,7 +129,8 @@
           px = lane.x;
           py = p.y;
         });
-        trails.append(el("path", { class: "casing", d }), el("path", { class: "trail", d, stroke: color }));
+        const grow = opening ? { pathLength: 1, style: `animation-delay:${ti * 110}ms` } : {};
+        trails.append(el("path", { class: `casing${opening ? " grow" : ""}`, d, ...grow }), el("path", { class: `trail${opening ? " grow" : ""}`, d, stroke: color, ...grow }));
         names.append(el("text", { class: "branch-name", x: lane.x + 10, y: y0 + 26, fill: color, style: `fill:${color}` }, lane.branch));
         for (const p of lane.pts) spots.set(p.idea.id, { x: lane.x, y: p.y, color, idea: p.idea, trunk: lane.trunk, branch: lane.branch });
       }
@@ -150,7 +155,9 @@
     for (const [id, s] of spots) {
       const { idea, x, y: py, color } = s;
       const g = el("g", {
-        class: `wp${idea.sample ? " sample" : ""}${id === shown() ? " on" : ""}${id === landing ? " landing" : ""}`,
+        class: `wp${idea.sample ? " sample" : ""}${id === shown() ? " on" : ""}${id === landing ? " landing" : ""}${opening ? " rise" : ""}`,
+        // Waypoints appear as the trail reaches them: lowest first.
+        ...(opening ? { style: `animation-delay:${Math.round(250 + ((y0 - py) / (y0 - top)) * 900)}ms` } : {}),
         tabindex: 0,
         role: "button",
         "aria-label": `${idea.title}, ${idea.score} out of 100`,
@@ -180,6 +187,7 @@
     }
     sign();
     landing = null;
+    opening = false;
   }
 
   const shown = () => (picked && spots.has(picked) ? picked : data?.latest);
@@ -201,7 +209,8 @@
     if (!s || (phone() && !picked)) return (box.hidden = true);
     const { idea } = s;
     box.hidden = false;
-    $("sign-when").textContent = idea.sample ? "Sample idea" : idea.id === data.latest ? "Just landed" : ago(idea.at);
+    const fresh = idea.id === data.latest && Date.now() - Date.parse(idea.at) < 5 * 60_000;
+    $("sign-when").textContent = idea.sample ? "Sample idea" : fresh ? "Just landed" : ago(idea.at);
     $("sign-score").textContent = idea.score;
     $("sign-title").textContent = idea.title;
     $("sign-problem").textContent = idea.problem;
@@ -213,6 +222,10 @@
   }
 
   function apply(next) {
+    // The live feed repeats the current map when it connects. Nothing changed, nothing to redraw.
+    const raw = JSON.stringify(next);
+    if (raw === seenRaw) return;
+    seenRaw = raw;
     const ids = new Set(next.trunks.flatMap((t) => t.branches.flatMap((b) => b.ideas.map((i) => i.id))));
     const fresh = known && next.latest && !known.has(next.latest) ? next.latest : null;
     data = next;
@@ -220,11 +233,8 @@
     document.title = next.name;
     $("name").textContent = next.name;
     const samples = next.trunks.some((t) => t.branches.some((b) => b.ideas.some((i) => i.sample)));
-    $("tally").textContent = next.ideas
-      ? `${next.ideas} texted in${next.connected ? `, ${next.connected} connected` : ""}.${samples ? " Hollow ones are samples." : ""}`
-      : samples
-        ? "Hollow markers are sample ideas."
-        : "";
+    $("tally").textContent = next.ideas ? `${next.ideas} texted in${next.connected ? `, ${next.connected} connected` : ""}` : "";
+    $("key-sample").hidden = !samples;
     if (fresh) {
       picked = phone() ? fresh : null;
       landing = fresh;
@@ -257,11 +267,14 @@
   });
   $("sign-close").addEventListener("click", () => pick(null));
 
+  // Redraw whenever the map's own box changes size (window resize, a toolbar appearing, the phone rotating).
   let resizing;
-  addEventListener("resize", () => {
+  new ResizeObserver(() => {
+    const stage = $("stage");
+    if (!data || `${stage.clientWidth}x${stage.clientHeight}` === box) return;
     clearTimeout(resizing);
     resizing = setTimeout(() => data && render(), 120);
-  });
+  }).observe($("stage"));
 
   // ---- live: the server pushes the map the moment a text is scored
   function live() {

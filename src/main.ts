@@ -44,6 +44,9 @@ const ping = async (to: string, text: string) => {
 
 const web = startServer({ store, port: Number(process.env.PORT ?? 1290), play, ping });
 
+// The port is the lock: only connect to the line once we know we are the only copy running.
+await web.ready;
+
 if (!brainOnline()) console.log("no GEMINI_API_KEY: running the offline stub brain");
 
 if (mapOnly || !photonOnline()) {

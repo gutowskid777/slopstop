@@ -120,6 +120,13 @@ export function startServer(opts: {
       json(res, 500, { error: String((err as Error)?.message ?? "Something broke. Try again.") });
     }
   });
+  // Two copies would both answer every text. Refuse to be the second one.
+  server.on("error", (err: NodeJS.ErrnoException) => {
+    console.error(err.code === "EADDRINUSE" ? `already running on port ${opts.port}. stop it first: npm run stop` : err);
+    process.exit(1);
+  });
   server.listen(opts.port, () => console.log(`map on http://localhost:${opts.port}   graph on http://localhost:${opts.port}/graph`));
-  return { broadcast, close: () => server.close() };
+  /** Resolves once the port is ours. */
+  const ready = new Promise<void>((done) => server.once("listening", () => done()));
+  return { broadcast, ready, close: () => server.close() };
 }

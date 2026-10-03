@@ -4,12 +4,13 @@
   "description": "Text it an idea, or what you're building. It scores it out of 100 instantly, then connects you to the builders closest to it.",
   "scripts": {
     "start": "tsx src/main.ts",
+    "stop": "lsof -ti tcp:${PORT:-1290} | xargs kill 2>/dev/null; echo stopped",
     "map": "tsx src/main.ts --map-only",
     "try": "tsx src/try.ts",
     "seed": "tsx src/seed.ts",
     "doctor": "tsx src/doctor.ts",
-    "typecheck": "tsc --noEmit",
-    "test": "tsx --test test/*.test.ts"
+    "test": "tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
   },
   "license": "ISC",
   "dependencies": {
