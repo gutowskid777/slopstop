@@ -97,6 +97,12 @@
       for (let i = 1; i < pts.length; i++) pts[i].y = Math.max(pts[i].y, pts[i - 1].y + type.gap);
       const floor = y0 - 20;
       for (let i = pts.length - 1; i >= 0; i--) pts[i].y = Math.min(pts[i].y, i === pts.length - 1 ? floor : pts[i + 1].y - type.gap);
+      // A nudge must not carry an idea across a decision line: a 70 is drawn above "build it", never under it.
+      pts.forEach((p, i) => {
+        const wall = p.idea.score >= 70 ? y(70) : p.idea.score >= 40 ? y(40) : Infinity;
+        const up = Math.min(p.y - (wall - 9), pts[0].y - (top + 10));
+        if (up > 0) for (let j = 0; j <= i; j++) pts[j].y -= up;
+      });
       lane.pts = pts;
       lane.peak = (pts[0]?.y ?? y0 - 24) - 24;
     });
@@ -289,6 +295,7 @@
     if (fresh) {
       picked = phone() ? fresh : null;
       landing = fresh;
+      closeJoin(); // whoever scanned the code has texted: give the panel back to their idea
     }
     const firstPaint = !$("map").childElementCount;
     render();
@@ -343,6 +350,13 @@
     .catch(() => {})
     .finally(live);
 
+  let joinTimer;
+  function closeJoin() {
+    clearTimeout(joinTimer);
+    $("join-done").hidden = true;
+    document.querySelector(".panel").classList.remove("joining");
+  }
+
   // ---- text it: register the number, then hand them Messages with the first text started
   const pretty = (n) => (/^\+1\d{10}$/.test(n) ? `(${n.slice(2, 5)}) ${n.slice(5, 8)}-${n.slice(8)}` : n);
   $("join").addEventListener("submit", async (e) => {
@@ -365,6 +379,8 @@
       // On a shared laptop the next person should not see this number, and the code needs the room.
       $("phone").value = "";
       document.querySelector(".panel").classList.add("joining");
+      clearTimeout(joinTimer);
+      joinTimer = setTimeout(closeJoin, 4 * 60_000);
       if (touch) location.href = out.link;
     } catch (err) {
       note.className = "join-note bad";
