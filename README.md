@@ -16,7 +16,8 @@ So the score has two inputs, each 0 to 10: how much the **problem** hurts, and w
 score = 10 x problem - 5 x fix        (clamped to 0-100)
 ```
 
-The problem has to hurt about twice as much as the fix. The model only rates the two inputs. Code does the math.
+The problem counts twice as much as the fix, and a fix that costs double the pain scores 0. The model only rates
+the two inputs. Code does the math.
 70 and up is "build it", 40 and up is "sharpen it", below that is "drop it or flip it".
 
 Bearing tries to pass its own test: there is no app, no signup and nothing to learn. You already know how to text.

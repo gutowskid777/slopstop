@@ -9,26 +9,26 @@ import { JsonStore, newId, type Idea } from "./store.js";
 
 // trunk, branch, title, problem, fix
 const rows: [string, string, string, number, number][] = [
-  ["campus life", "dining", "Shortest dining line by text", 5, 1],
+  ["campus life", "dining", "Dining line by text", 5, 1],
   ["campus life", "dining", "Meal swipe sharing", 6, 5],
   ["campus life", "dining", "Late night food map", 3, 4],
   ["campus life", "study spots", "Open library seats bot", 7, 2],
   ["campus life", "study spots", "Quiet room booking", 5, 3],
-  ["campus life", "study spots", "Group study matcher app", 4, 6],
-  ["money", "getting paid", "Invoice chaser for freelancers", 9, 2],
+  ["campus life", "study spots", "Study group matcher", 4, 6],
+  ["money", "getting paid", "Invoice chaser", 9, 2],
   ["money", "getting paid", "Club dues collector", 7, 3],
   ["money", "getting paid", "Tutor payment reminders", 5, 2],
   ["money", "splitting costs", "Split rent by text", 8, 3],
   ["money", "splitting costs", "Trip cost splitter", 4, 3],
   ["money", "splitting costs", "Roommate grocery ledger", 3, 5],
   ["health", "habits", "Refill before you run out", 9, 3],
-  ["health", "habits", "Gym buddy check-in texts", 6, 2],
+  ["health", "habits", "Gym buddy check-ins", 6, 2],
   ["health", "habits", "Sleep debt nudges", 5, 4],
   ["health", "habits", "Water intake dashboard", 2, 6],
-  ["getting around", "wayfinding", "Accessible entrance finder", 10, 2],
-  ["getting around", "wayfinding", "Safe walk home at night", 8, 2],
-  ["getting around", "wayfinding", "Indoor directions for big buildings", 6, 3],
-  ["getting around", "wayfinding", "Parking spot predictor app", 5, 6],
+  ["getting around", "wayfinding", "Accessible entrances", 10, 2],
+  ["getting around", "wayfinding", "Safe walk home", 8, 2],
+  ["getting around", "wayfinding", "Indoor directions", 6, 3],
+  ["getting around", "wayfinding", "Parking spot predictor", 5, 6],
 ];
 
 const store = new JsonStore();

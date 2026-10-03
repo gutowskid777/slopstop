@@ -28,7 +28,7 @@ const t = (text: string, effect?: "slam" | "confetti"): Out => ({ type: "text", 
 // Every word the agent can say that the model didn't write. Tone: a sharp friend texting. Lowercase, short, no filler.
 const copy = {
   pitch: "text me an idea or what you're building. i score it out of 100 and connect you w/ the builders closest to it.",
-  how: "score = 10 x problem - 5 x fix, both rated 0-10. the problem has to hurt about 2x what the fix costs to adopt.\nalso: mine, private, public, map, stop, forget me.",
+  how: "score = 10 x problem - 5 x fix, both rated 0-10. the problem counts double, the fix counts against you.\nalso: mine, private, public, map, stop, forget me.",
   call: { build: "build it.", sharpen: "sharpen it.", drop: "drop it or flip it." },
   told: 'fyi the title is on the map, no name attached. "private" pulls it.',
   alone: "nobody's near this yet. you'll hear from me when a builder wants in.",

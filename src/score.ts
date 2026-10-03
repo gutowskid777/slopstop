@@ -1,5 +1,5 @@
 // The score. The model only rates the two inputs; this file does the math, so the number is never a vibe.
-// The problem has to hurt about twice as much as the fix costs to adopt.
+// The problem counts twice as much as the fix. A fix that costs double the pain scores 0.
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
