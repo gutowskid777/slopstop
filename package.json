@@ -1,22 +1,25 @@
 {
-  "name": "brh-ideas",
+  "name": "bearing",
   "version": "1.0.0",
-  "description": "Text an idea. Get a verdict. See the map.",
+  "description": "Text it an idea, or what you're building. It scores it out of 100 instantly, then connects you to the builders closest to it.",
   "scripts": {
-    "agent": "tsx src/agent.ts",
-    "map": "tsx src/map-server.ts",
+    "start": "tsx src/main.ts",
+    "map": "tsx src/main.ts --map-only",
     "try": "tsx src/try.ts",
     "seed": "tsx src/seed.ts",
+    "doctor": "tsx src/doctor.ts",
     "typecheck": "tsc --noEmit"
   },
   "license": "ISC",
   "dependencies": {
     "@google/genai": "^2.27.0",
     "dotenv": "^18.0.5",
+    "qrcode": "^1.5.4",
     "spectrum-ts": "^12.10.1"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",
+    "@types/qrcode": "^1.5.6",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3"
   },

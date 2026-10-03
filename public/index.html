@@ -2,135 +2,71 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The Idea Map</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bearing</title>
+<meta name="description" content="Text it an idea, or what you're building. It scores it out of 100 instantly, then connects you to the builders closest to it.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #12100e;
-    --ink: #f4ecdf;
-    --dim: #7a6f64;
-    --line: #2e2823;
-    --ember: #ff5a36;
-    --gold: #f2b33d;
-    --cold: #5d554e;
-  }
-  * { box-sizing: border-box; margin: 0; }
-  html, body { background: var(--bg); color: var(--ink); font-family: "Bricolage Grotesque", system-ui, sans-serif; }
-  body { min-height: 100vh; overflow-x: hidden; }
-  header { padding: 28px 16px 0; max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; }
-  h1 { font-size: clamp(40px, 8vw, 88px); font-weight: 800; letter-spacing: -0.03em; line-height: 0.9; }
-  h1 em { font-style: normal; color: var(--ember); }
-  .stats { display: flex; gap: 28px; }
-  .stat b { display: block; font-family: "JetBrains Mono", monospace; font-size: clamp(36px, 6vw, 64px); font-weight: 700; line-height: 1; }
-  .stat span { color: var(--dim); font-size: 15px; font-weight: 500; }
-  .cta { max-width: 1200px; margin: 14px auto 0; padding: 0 16px; font-size: clamp(18px, 2.4vw, 24px); color: var(--dim); }
-  .cta b { color: var(--ink); }
-  #stage { width: 100%; max-width: 1200px; margin: 0 auto; display: block; }
-  svg text { font-family: "Bricolage Grotesque", system-ui, sans-serif; }
-  .link { stroke: var(--line); stroke-width: 2; fill: none; }
-  .branch-label { font-weight: 800; fill: var(--ink); }
-  .idea-label { font-weight: 500; fill: var(--ink); }
-  .ratio { font-family: "JetBrains Mono", monospace; font-weight: 700; }
-  .node { animation: pop 600ms cubic-bezier(.2,1.4,.4,1) both; transform-box: fill-box; transform-origin: center; }
-  @keyframes pop { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: scale(1); } }
-  .best { max-width: 1200px; margin: 0 auto; padding: 8px 16px 48px; }
-  .best h2 { font-size: 15px; color: var(--dim); font-weight: 500; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 12px; }
-  .row { display: flex; align-items: baseline; gap: 16px; padding: 12px 0; border-top: 1px solid var(--line); }
-  .row .r { font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: clamp(28px, 5vw, 44px); min-width: 3.4em; }
-  .row .t { font-size: clamp(20px, 3vw, 30px); font-weight: 800; letter-spacing: -0.01em; }
-  .row .b { color: var(--dim); font-size: 16px; margin-left: auto; text-align: right; }
-  .empty { text-align: center; color: var(--dim); font-size: 24px; padding: 80px 16px; }
-  @media (prefers-reduced-motion: reduce) { .node { animation: none; } }
-</style>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/map.css">
 </head>
 <body>
-<header>
-  <h1>The idea <em>map</em></h1>
-  <div class="stats">
-    <div class="stat"><b id="n-ideas">0</b><span>ideas</span></div>
-    <div class="stat"><b id="n-branches">0</b><span>branches</span></div>
-  </div>
-</header>
-<p class="cta">Text an idea to the agent. Bright means the problem hurts more than the fix. <b>That's the bar.</b></p>
-<svg id="stage" viewBox="0 0 1200 860" role="img" aria-label="Map of public ideas grouped by branch"></svg>
-<section class="best">
-  <h2>Best ratios</h2>
-  <div id="best"></div>
-</section>
-<script>
-const NS = "http://www.w3.org/2000/svg";
-const W = 1200, H = 860, CX = W / 2, CY = H / 2;
-const seen = new Set();
+<main class="shell">
+  <section class="panel" aria-label="Text it">
+    <a class="mark" href="/" id="name">Bearing</a>
+    <h1>Text it an idea.</h1>
+    <p class="lede">Or what you're building. It scores it out of 100 instantly, then connects you to the builders closest to it.</p>
 
-const tone = (p, s) => (p / s >= 2 ? "var(--ember)" : p / s >= 1 ? "var(--gold)" : "var(--cold)");
-const el = (tag, attrs, text) => {
-  const e = document.createElementNS(NS, tag);
-  for (const k in attrs) e.setAttribute(k, attrs[k]);
-  if (text != null) e.textContent = text;
-  return e;
-};
-const clip = (s, n) => (s.length > n ? s.slice(0, n - 1) + "..." : s);
+    <form class="join" id="join" novalidate>
+      <label for="phone">Your number</label>
+      <div class="join-row">
+        <input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="607 555 0134" required>
+        <button type="submit" id="join-go">Text it</button>
+      </div>
+      <p class="join-note" id="join-note" role="status" aria-live="polite"></p>
+      <div class="join-done" id="join-done" hidden>
+        <div class="qr" id="qr" aria-hidden="true"></div>
+        <div>
+          <p class="join-how" id="join-how"></p>
+          <a class="join-open" id="join-open" href="#">Open Messages</a>
+        </div>
+      </div>
+    </form>
 
-function draw(data) {
-  const svg = document.getElementById("stage");
-  svg.replaceChildren();
-  document.getElementById("n-ideas").textContent = data.count;
-  document.getElementById("n-branches").textContent = data.branches.length;
-  if (!data.branches.length) {
-    svg.append(el("text", { x: CX, y: CY, "text-anchor": "middle", fill: "var(--dim)", "font-size": 34 }, "No public ideas yet. Be the first."));
-    return;
-  }
-  svg.append(el("circle", { cx: CX, cy: CY, r: 10, fill: "var(--ink)" }));
-  const R1 = 230, n = data.branches.length;
-  data.branches.forEach((b, i) => {
-    const ang = (i / n) * Math.PI * 2 - Math.PI / 2;
-    const bx = CX + Math.cos(ang) * R1, by = CY + Math.sin(ang) * R1;
-    svg.append(el("path", { class: "link", d: `M${CX},${CY} Q${CX + Math.cos(ang) * R1 * 0.5},${CY + Math.sin(ang) * R1 * 0.5 - 30} ${bx},${by}` }));
-    const k = b.ideas.length, spread = Math.min(1.1, 0.45 * k);
-    b.ideas.forEach((idea, j) => {
-      const a2 = ang + (k === 1 ? 0 : -spread / 2 + (spread * j) / (k - 1));
-      const R2 = 120 + (j % 2) * 34;
-      const ix = bx + Math.cos(a2) * R2, iy = by + Math.sin(a2) * R2;
-      svg.append(el("line", { class: "link", x1: bx, y1: by, x2: ix, y2: iy }));
-      const g = el("g", { class: seen.has(idea.id) ? "" : "node" });
-      seen.add(idea.id);
-      const c = tone(idea.problemPain, idea.solutionPain);
-      g.append(el("circle", { cx: ix, cy: iy, r: 6 + idea.problemPain * 1.4, fill: c }));
-      const right = Math.cos(a2) >= 0;
-      const tx = ix + (right ? 1 : -1) * (14 + idea.problemPain * 1.4);
-      const anchor = right ? "start" : "end";
-      g.append(el("text", { x: tx, y: iy - 2, "text-anchor": anchor, class: "idea-label", "font-size": 19 }, clip(idea.title, 26)));
-      g.append(el("text", { x: tx, y: iy + 20, "text-anchor": anchor, class: "ratio", "font-size": 16, fill: c }, `${idea.problemPain}:${idea.solutionPain}`));
-      svg.append(g);
-    });
-    svg.append(el("circle", { cx: bx, cy: by, r: 16, fill: "var(--bg)", stroke: "var(--ink)", "stroke-width": 4 }));
-    svg.append(el("text", { x: bx, y: by + (Math.sin(ang) >= 0 ? 46 : -30), "text-anchor": "middle", class: "branch-label", "font-size": 30 }, b.name));
-  });
+    <div class="thread" id="thread" aria-label="What a text looks like">
+      <p class="me">my idea: a text line that chases late invoices for freelancers</p>
+      <p class="it">80/100<br>problem 9&nbsp;&nbsp;·&nbsp;&nbsp;fix 2</p>
+      <p class="it">build it. late pay hurts every month and a text costs nothing to try.</p>
+    </div>
 
-  const all = data.branches.flatMap((b) => b.ideas.map((i) => ({ ...i, branch: b.name })));
-  all.sort((a, b) => b.problemPain / b.solutionPain - a.problemPain / a.solutionPain);
-  document.getElementById("best").replaceChildren(
-    ...all.slice(0, 5).map((i) => {
-      const row = document.createElement("div");
-      row.className = "row";
-      row.innerHTML = `<span class="r" style="color:${tone(i.problemPain, i.solutionPain)}">${i.problemPain}:${i.solutionPain}</span><span class="t"></span><span class="b"></span>`;
-      row.querySelector(".t").textContent = i.title;
-      row.querySelector(".b").textContent = i.branch;
-      return row;
-    }),
-  );
-}
+    <article class="sign" id="sign" aria-live="polite" hidden>
+      <button class="sign-close" id="sign-close" type="button" aria-label="Close">Close</button>
+      <p class="sign-when" id="sign-when"></p>
+      <p class="sign-score"><span id="sign-score">0</span><small>/100</small></p>
+      <h2 id="sign-title"></h2>
+      <dl class="sign-inputs">
+        <div><dt>problem</dt><dd id="sign-problem">0</dd></div>
+        <div><dt>fix</dt><dd id="sign-fix">0</dd></div>
+      </dl>
+      <p class="sign-call" id="sign-call"></p>
+      <p class="sign-where"><span class="blaze" id="sign-blaze"></span><span id="sign-where"></span></p>
+      <p class="sign-near" id="sign-near"></p>
+    </article>
 
-async function tick() {
-  try {
-    const res = await fetch("/api/map", { cache: "no-store" });
-    draw(await res.json());
-  } catch (e) {}
-}
-tick();
-setInterval(tick, 4000);
-</script>
+    <footer class="foot">
+      <p class="tally" id="tally"></p>
+      <a href="/graph">How the score works</a>
+    </footer>
+  </section>
+
+  <section class="mapwrap" aria-label="The branch map">
+    <div class="stage" id="stage">
+      <svg id="map" role="img" aria-label="Ideas sorted into branches. Higher on the map means a higher score."></svg>
+    </div>
+    <div class="gutter" id="gutter" aria-hidden="true"></div>
+    <p class="empty" id="empty" hidden>No ideas on the map yet. Text the first one.</p>
+  </section>
+</main>
+<script src="/map.js"></script>
 </body>
 </html>
