@@ -12,6 +12,11 @@
   /* The same land as the map, seen from above. The summit is a big problem with a fix that costs nothing. */
   .panel h1 { font-size: clamp(38px, 3.5vw, 52px); line-height: 0.98; }
   .formula { font-weight: 900; font-size: 20px; letter-spacing: -0.01em; white-space: nowrap; }
+  /* The one knob in the score. "half" is what the agent uses; the other two are there to compare. */
+  .weigh { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 15.5px; font-weight: 700; color: var(--soft); }
+  .weigh span { flex-basis: 100%; }
+  .weigh button { height: 38px; padding: 0 12px; font-weight: 800; font-size: 15.5px; background: #fff; border: 2px solid var(--ink); border-radius: 6px; cursor: pointer; }
+  .weigh button[aria-pressed="true"] { background: var(--ink); color: #fff; }
   .pins { display: grid; gap: 16px; margin-top: 6px; }
   .pin { display: grid; grid-template-columns: 36px auto 1fr; column-gap: 12px; align-items: center; }
   .pin-letter { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 900; font-size: 19px; color: #fff; background: var(--ink); }
@@ -62,8 +67,14 @@
 <main class="shell">
   <section class="panel">
     <a class="mark" href="/" id="name">Bearing</a>
-    <h1>The problem counts twice as much as the fix.</h1>
-    <p class="formula">score = 10 × problem − 5 × fix</p>
+    <h1 id="headline">The problem counts twice as much as the fix.</h1>
+    <p class="formula" id="formula">score = 10 × problem − 5 × fix</p>
+    <div class="weigh" role="group" aria-label="How heavy the fix weighs">
+      <span>The fix weighs</span>
+      <button type="button" data-w="0.5" aria-pressed="true">half</button>
+      <button type="button" data-w="1" aria-pressed="false">the same</button>
+      <button type="button" data-w="2" aria-pressed="false">double</button>
+    </div>
     <div class="pins">
       <div class="pin a"><span class="pin-letter">A</span><span class="pin-score" id="a-score">25</span><div><p class="pin-what" id="a-what"></p><p class="pin-math" id="a-math"></p></div></div>
       <div class="pin b"><span class="pin-letter">B</span><span class="pin-score" id="b-score">65</span><div><p class="pin-what" id="b-what"></p><p class="pin-math" id="b-math"></p></div></div>
@@ -89,7 +100,15 @@
     if (text != null) e.textContent = text;
     return e;
   };
-  const score = (p, f) => Math.max(0, Math.min(100, 10 * p - 5 * f));
+  // How heavy the fix weighs against the problem. 0.5 is the live formula; 1 and 2 are the other two stories.
+  let weigh = 0.5;
+  const STORY = {
+    0.5: "The problem counts twice as much as the fix.",
+    1: "The problem has to beat the fix.",
+    2: "The problem has to hurt twice as much as the fix.",
+  };
+  const ZERO = { 0.5: "scores 0: the fix costs double the problem", 1: "scores 0: the fix costs as much as the problem", 2: "scores 0: the problem isn't double the fix" };
+  const score = (p, f) => Math.max(0, Math.min(100, 10 * p - 10 * weigh * f));
   const pins = { a: { p: 3, f: 1 }, b: { p: 9, f: 5 } };
   let ideas = [];
   let geo = null;
@@ -102,8 +121,10 @@
       const { p, f } = pins[k];
       $(`${k}-score`).textContent = score(p, f);
       $(`${k}-what`).textContent = `${sizeWord(p)} problem, ${fixWord(f)}`;
-      $(`${k}-math`).textContent = `10 × ${p} − 5 × ${f}`;
+      $(`${k}-math`).textContent = `10 × ${p} − ${10 * weigh} × ${f}`;
     }
+    $("headline").textContent = STORY[weigh];
+    $("formula").textContent = `score = 10 × problem − ${10 * weigh} × fix`;
     const d = score(pins.b.p, pins.b.f) - score(pins.a.p, pins.a.f);
     $("gap").textContent = d === 0 ? "A and B tie." : `${d > 0 ? "B" : "A"} wins by ${Math.abs(d)}.`;
   }
@@ -122,27 +143,30 @@
     svg.setAttribute("viewBox", `0 0 ${side} ${side}`);
     svg.replaceChildren();
 
-    // Everything at or above score k is the corner above the line 10p - 5f = k.
-    const region = (k) => {
-      const pts = k <= 50 ? [[0, k / 10], [10, (k + 50) / 10], [10, 10], [0, 10]] : [[0, k / 10], [(100 - k) / 5, 10], [0, 10]];
+    // Everything at or above score c is the corner above the line 10p - 10 x weigh x f = c.
+    const edge = (c) => {
+      const top = (100 - c) / (10 * weigh); // the fix at which the line reaches problem 10
+      return top >= 10 ? [10, c / 10 + weigh * 10] : [top, 10];
+    };
+    const region = (c) => {
+      const e = edge(c);
+      const pts = e[0] === 10 && e[1] < 10 ? [[0, c / 10], e, [10, 10], [0, 10]] : [[0, c / 10], e, [0, 10]];
       return pts.map(([f, p]) => `${X(f)},${Y(p)}`).join(" ");
     };
-    const line = (k) => {
-      const end = k <= 50 ? [10, (k + 50) / 10] : [(100 - k) / 5, 10];
-      return `M${X(0)},${Y(k / 10)} L${X(end[0])},${Y(end[1])}`;
-    };
+    const line = (c) => `M${X(0)},${Y(c / 10)} L${X(edge(c)[0])},${Y(edge(c)[1])}`;
     // The same three bands as the map: lowland, the middle from 40, summits from 70.
     svg.append(el("rect", { class: "low", x: m.l, y: m.t, width: w, height: h }));
     svg.append(el("polygon", { class: "mid", points: region(40) }));
     svg.append(el("polygon", { class: "high", points: region(70) }));
     // Score 0: the fix costs double the pain, or more.
-    svg.append(el("polygon", { class: "dead", points: [[0, 0], [10, 0], [10, 5]].map(([f, p]) => `${X(f)},${Y(p)}`).join(" ") }));
-    const tilt = (-Math.atan2(h * 0.05, w * 0.1) * 180) / Math.PI;
+    const dead = weigh > 1 ? [[0, 0], [10, 0], [10, 10], [10 / weigh, 10]] : [[0, 0], [10, 0], [10, 10 * weigh]];
+    svg.append(el("polygon", { class: "dead", points: dead.map(([f, p]) => `${X(f)},${Y(p)}`).join(" ") }));
+    const tilt = (-Math.atan2(h * weigh * 0.1, w * 0.1) * 180) / Math.PI;
     for (let k = 0; k <= 90; k += 10) {
       svg.append(el("path", { class: `iso${k === 70 || k === 40 ? " call" : ""}`, d: line(k) }));
       if (k % 20 === 0 && k && k !== 40) {
-        const f = 0.3, p = (k + 5 * f) / 10;
-        svg.append(el("text", { class: "iso-num", x: X(f), y: Y(p) - 6, transform: `rotate(${tilt} ${X(f)} ${Y(p) - 6})` }, k));
+        const f = 0.3, p = k / 10 + weigh * f;
+        if (p < 9.6) svg.append(el("text", { class: "iso-num", x: X(f), y: Y(p) - 6, transform: `rotate(${tilt} ${X(f)} ${Y(p) - 6})` }, k));
       }
     }
     svg.append(el("rect", { class: "frame", x: m.l, y: m.t, width: w, height: h }));
@@ -168,13 +192,13 @@
     }
 
     // Zone names go on last so the ideas never sit on top of the words.
-    const along = (k, f, text, cls) => {
-      const p = (k + 5 * f) / 10;
+    const along = (c, f, text, cls) => {
+      const p = c / 10 + weigh * f;
       svg.append(el("text", { class: cls, x: X(f), y: Y(p) - 10, transform: `rotate(${tilt} ${X(f)} ${Y(p) - 10})` }, text));
     };
     along(70, 0.3, "build it", "zone-name");
     along(40, 0.3, "sharpen it", "zone-name");
-    along(0, phone ? 5.4 : 4.4, phone ? "scores 0" : "scores 0: the fix costs double the problem", "zone-name quiet");
+    along(0, { 0.5: phone ? 5.4 : 4.4, 1: phone ? 3 : 2.2, 2: phone ? 2.6 : 2.4 }[weigh], phone ? "scores 0" : ZERO[weigh], "zone-name quiet");
 
     for (const k of ["a", "b"]) {
       const { p, f } = pins[k];
@@ -217,6 +241,14 @@
     pins[k] = { p: clamp(pins[k].p + step[0]), f: clamp(pins[k].f + step[1]) };
     draw();
     $("graph").querySelector(`[data-k="${k}"]`)?.focus();
+  });
+
+  document.querySelector(".weigh").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    weigh = Number(b.dataset.w);
+    for (const o of document.querySelectorAll(".weigh button")) o.setAttribute("aria-pressed", String(o === b));
+    draw();
   });
 
   let resizing;
