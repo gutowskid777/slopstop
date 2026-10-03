@@ -47,6 +47,8 @@ cp .env.example .env     # Photon + Gemini keys
 npm run doctor           # checks the brain, the line and who can text it
 npm run seed             # sample ideas so the map has terrain
 npm start                # the iMessage agent + the map on http://localhost:1290
+npm run demo             # the same, and keeps the Mac awake while it runs
+npm run stop             # ends it (it refuses to run twice: two copies would both answer every text)
 ```
 
 On Photon's shared line a number has to be registered before the agent can talk to it. The **Text it** box on the

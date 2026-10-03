@@ -310,6 +310,8 @@
       $("qr").hidden = touch;
       $("join-how").innerHTML = touch ? "Opening Messages. Finish the sentence and send. Or text <b></b>" : "Scan it with your phone, or text <b></b>";
       $("join-how").querySelector("b").textContent = pretty(out.number);
+      // On a shared laptop the next person should not see this number.
+      $("phone").value = "";
       if (touch) location.href = out.link;
     } catch (err) {
       note.className = "join-note bad";
