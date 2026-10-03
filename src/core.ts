@@ -28,7 +28,9 @@ const t = (text: string, effect?: "slam" | "confetti"): Out => ({ type: "text", 
 // Every word the agent can say that the model didn't write. Tone: a sharp friend texting. Lowercase, short, no filler.
 const copy = {
   pitch: "text me an idea or what you're building. i score it out of 100 and connect you w/ the builders closest to it.",
-  how: "score = 10 x problem - 5 x fix, both rated 0-10. the problem counts double, the fix counts against you.\nalso: mine, private, public, map, stop, forget me.",
+  how: "score = 10 x problem - 5 x fix, both rated 0-10. the problem counts double, the fix counts against you.\nalso: mine, me, private, public, map, stop, forget me.",
+  meEmpty: 'nothing yet. text "me: ..." and tell me anything: school, what you do, who you build for.',
+  meSet: "got it. that's what i know about you now.",
   call: { build: "build it.", sharpen: "sharpen it.", drop: "drop it or flip it." },
   told: 'fyi the title is on the map, no name attached. "private" pulls it.',
   alone: "nobody's near this yet. you'll hear from me when a builder wants in.",
@@ -70,6 +72,10 @@ export function yesNo(text: string): { yes: boolean; name?: string } | undefined
   if (words.length > 2 || words.some((w) => !/^\p{L}[\p{L}'-]*$/u.test(w) || NOT_A_NAME.has(w.toLowerCase()))) return undefined;
   return { yes: true, name: words.map((w) => w[0].toUpperCase() + w.slice(1)).join(" ") };
 }
+
+const ABOUT_ME = /^(?:about me|me)\s*[:,-]\s*(.+)$/is;
+/** "new idea", "another one": the text says outright that it is pitching something new. */
+const FRESH = /\b(new|another|different|next|second|other)\s+(idea|one)\b|\bscratch that\b/i;
 
 /** "private: my idea" keeps it off the map from the start. The colon matters: "private equity tracker" is just an idea. */
 const PRIVATE = /^private\s*[:,-]\s*/i;
@@ -114,6 +120,19 @@ export async function handle(sender: string, raw: string, d: Deps, image?: Brain
     if (!mine.length) return say(t(copy.empty));
     return say(t(mine.map((i, n) => `${n + 1}. ${i.title}, ${i.score}${i.private ? " (private)" : ""}`).join("\n")));
   }
+  // What it knows about you is one box of text. "me" reads it back, "me: ..." replaces it.
+  if (/^(me|about me|what do you know about me)$/.test(lower)) {
+    return say(t(user.facts.length ? `what i know: ${user.facts.join(". ")}.\ntext "me: ..." to replace it.` : copy.meEmpty));
+  }
+  const me = text.match(ABOUT_ME);
+  if (me) {
+    user.facts = [me[1].trim().slice(0, 400)];
+    user.pending = user.pending.filter((p) => p.kind !== "ask");
+    store.saveUser(user);
+    if (!store.idea(user.lastIdea ?? "")) return say(t(copy.meSet));
+    await say(t(copy.meSet));
+    // Falls through: the new context re-reads their last idea.
+  }
   if (/^(map|the map|show me the map)$/.test(lower)) {
     return say(t(d.mapUrl && !/localhost|127\.0\.0\.1/.test(d.mapUrl) ? d.mapUrl : copy.noMap));
   }
@@ -153,8 +172,12 @@ export async function handle(sender: string, raw: string, d: Deps, image?: Brain
       question: openAsk?.question,
       // One question, once: only while we know nothing about them. After that it never interviews.
       mayAsk: !openAsk && !user.facts.length && !user.askedOn,
+      fresh: FRESH.test(text),
       image,
     });
+    // An answer and a new idea in one text ("no. new idea: ...") is a new idea. It must never rewrite the old one.
+    if (r.kind === "context" && FRESH.test(text) && !me) r.kind = "idea";
+    if (me && last) r.kind = "context";
   } catch (err) {
     console.error(err);
     return say(t(copy.down));
@@ -222,11 +245,8 @@ async function addContext(user: User, idea: Idea, r: Read, d: Deps) {
   if (s !== before || r.problem !== idea.problem || r.fix !== idea.fix) {
     idea.was = [...(idea.was ?? []), { problem: idea.problem, fix: idea.fix, score: before, at: new Date().toISOString() }];
   }
+  // New context moves the numbers and the advice. It never rewrites what the idea is (title, gist, branch).
   Object.assign(idea, { problem: r.problem, fix: r.fix, score: s, verdict: r.verdict, move: r.move });
-  if (r.gist && r.gist !== idea.gist) {
-    idea.gist = r.gist;
-    idea.vec = (await (d.embed ?? embedBrain)(r.gist)) ?? idea.vec;
-  }
   store.saveIdea(idea);
   user.pending = user.pending.filter((p) => p.kind !== "ask");
   store.saveUser(user);

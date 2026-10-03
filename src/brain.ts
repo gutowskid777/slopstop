@@ -28,6 +28,8 @@ export type BrainContext = {
   last?: { title: string; gist: string; text: string; problem: number; fix: number };
   /** The question we asked last, if it is still open. */
   question?: string;
+  /** The text itself says it is pitching something new ("new idea", "another one"). */
+  fresh?: boolean;
   mayAsk: boolean;
   image?: { mimeType: string; data: Buffer };
 };
@@ -38,8 +40,8 @@ THE THESIS
 Most products are slop not because they fail to work, but because adopting the fix hurts more than the problem did. Fix pain is finding it, onboarding, learning the UX, building the habit, paying, and upkeep. People are lazy, and doing it by hand can even feel fine.
 
 PICK kind
-- "idea": a new idea, or something they are building. Texts are often voice-typed brain dumps: find the idea inside the ramble.
-- "context": they answered the open question, or added facts about themselves or about the LAST idea. Re-rate the last idea with what you now know: move a number only when the new fact truly changes how much it hurts or what it costs to adopt, and say what changed.
+- "idea": a new idea, or something they are building. Texts are often voice-typed brain dumps: find the idea inside the ramble. If the text answers your open question AND ALSO pitches a different idea ("new idea", "another one", "scratch that"), it is an "idea": rate the NEW one, and put what they told you about themselves in fact.
+- "context": they answered the open question, or added facts about themselves or about the LAST idea, and pitched nothing new. Re-rate the last idea with what you now know: move a number only when the new fact truly changes how much it hurts or what it costs to adopt, and say what changed.
 - "chat": anything else (a greeting, a question about you, thanks). Fill only reply.
 
 RATE (idea and context). Two integers. Code computes the score as 10 x problem - 5 x fix, so do not compute it.
@@ -52,8 +54,8 @@ Rate what they described, not the best version of it. Be honest and specific to 
 FIELDS
 - title: 2-4 plain words naming it, 22 characters at most, sentence case (capitalize the first word and proper nouns only). No quotes, no period.
 - gist: one plain sentence: who it is for and the problem it solves. Leave out how it is delivered (app, text line, bot, site), so two ideas about the same problem read alike.
-- trunk: the broad area, 1-2 lowercase words. Reuse an existing trunk whenever one fits.
-- branch: the specific theme inside that trunk, 1-3 lowercase words. Reuse an existing branch whenever one fits. Make a new one only when nothing fits.
+- trunk: the broad area, 1-2 lowercase words. Reuse an existing trunk only when the idea truly belongs there, otherwise name a new one.
+- branch: the specific theme inside that trunk, 1-3 lowercase words. Reuse an existing branch only when this idea is about the same thing. An idea about something else gets its own branch: never file an idea under a branch just because it exists.
 - verdict: ONE short sentence. Why the two numbers are what they are, and which side to push: cut the fix, or go after a sharper pain. Code prepends the call (build it / sharpen it / drop it), so never state the call yourself.
 - move: ONE concrete thing to do in the next 24 hours to test it. Name the kind of person or place.
 - ask: empty unless ASK ALLOWED is yes. When it is yes you know nothing about the sender, so ask the ONE question about the builder's leverage whose answer changes the most at once: where they sit ("you in college?" unlocks clubs, campus resources and a captive first audience), whether they live the problem ("you have this problem yourself?"), or how far along they are ("you already have users?"). Never a detail of the idea and never their hobbies or things they own ("what kind of freelance work?", "you have a dog?" and "you live near mountains?" are bad). Under 8 words. If this text already tells you who they are, leave it empty.
@@ -126,6 +128,7 @@ function brief(text: string, ctx: BrainContext) {
       ? `THEIR LAST IDEA: ${ctx.last.title}. ${ctx.last.gist} (problem ${ctx.last.problem}, fix ${ctx.last.fix})\nIn their words: ${ctx.last.text.slice(0, 600)}`
       : "THEIR LAST IDEA: none.",
     ctx.question ? `OPEN QUESTION YOU ASKED: ${ctx.question}` : "",
+    ctx.fresh ? "NOTE: this text announces a new idea, so kind is \"idea\". Rate the new one." : "",
     `ASK ALLOWED: ${ctx.mayAsk ? "yes" : "no"}`,
     `NEW TEXT FROM THEM:\n${text || "(a photo, no text)"}`,
   ]
@@ -158,7 +161,7 @@ export async function read(text: string, ctx: BrainContext): Promise<Read> {
           systemInstruction: SYSTEM,
           responseMimeType: "application/json",
           responseSchema: schema,
-          temperature: 0.3,
+          temperature: 0,
           httpOptions: { timeout: 10_000 },
         },
       });
