@@ -1,5 +1,6 @@
 // The promises the product makes, checked without a phone or a model: the math, the yes/no parsing,
-// and the intro rules (ask one side first, swap numbers only on two yeses, never match private ideas).
+// the intro rules (ask one side first, swap numbers only on two real yeses, never match private ideas),
+// and the things real texts broke: an answer plus a new idea, "delete that", "who's near me", "ok".
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync } from "node:fs";
@@ -12,16 +13,23 @@ import type { Read } from "../src/brain.js";
 
 const read = (over: Partial<Read>): Read => ({
   kind: "idea", title: "Library seat finder", gist: "students cannot find open library seats", trunk: "campus life", branch: "study spots",
-  problem: 7, fix: 2, verdict: "real pain, light fix.", move: "ask five ppl.", ask: "", fact: "", plays: [], reply: "", ...over,
+  problem: 7, fix: 2, verdict: "real pain, light fix.", move: "ask five ppl.", ask: "", more: false, fact: "", plays: [], reply: "", ...over,
 });
 
-function world(brain: (text: string) => Partial<Read> = () => ({})) {
+function world(brain: (text: string) => Partial<Read> = () => ({}), same = true) {
   const store = new JsonStore(join(mkdtempSync(join(tmpdir(), "bearing-")), "db.json"));
   const sent: { to: string; out: Out[] }[] = [];
-  const deps = { store, send: async (to: string, out: Out[]) => void sent.push({ to, out }), brain: async (t: string) => read(brain(t)), embed: async () => undefined };
+  const deps = {
+    store,
+    send: async (to: string, out: Out[]) => void sent.push({ to, out }),
+    brain: async (t: string) => read(brain(t)),
+    embed: async () => undefined,
+    judge: async () => same,
+  };
   const text = (from: string, body: string) => handle(from, body, deps);
   const said = (to: string) => sent.filter((s) => s.to === to).flatMap((s) => s.out).map((o) => (o.type === "text" ? o.text : `[${o.type}]`)).join("\n");
-  return { store, sent, text, said };
+  const last = (to: string) => sent.filter((s) => s.to === to).at(-1)?.out.map((o) => (o.type === "text" ? o.text : `[${o.type}]`)).join("\n") ?? "";
+  return { store, sent, text, said, last };
 }
 
 test("the score is 10 x problem - 5 x fix, clamped to 0-100", () => {
@@ -33,12 +41,13 @@ test("the score is 10 x problem - 5 x fix, clamped to 0-100", () => {
   assert.deepEqual([call(70), call(69), call(40), call(39)], ["build", "sharpen", "sharpen", "drop"]);
 });
 
-test("a short yes carries a name; a sentence that starts with yes is not an answer", () => {
+test("a short yes carries a name; a sentence that starts with yes is not an answer; ok is not a yes", () => {
   assert.deepEqual(yesNo("yes dylan"), { yes: true, name: "Dylan" });
   assert.deepEqual(yesNo("yeah i'm Rithik"), { yes: true, name: "Rithik" });
   assert.deepEqual(yesNo("nah"), { yes: false });
   assert.equal(yesNo("yeah im a sophomore at cornell"), undefined);
   assert.equal(yesNo("no idea what this is tbh"), undefined);
+  assert.equal(yesNo("ok"), undefined);
 });
 
 test("an idea gets one number out of 100 with the two inputs beside it", async () => {
@@ -48,7 +57,7 @@ test("an idea gets one number out of 100 with the two inputs beside it", async (
 });
 
 test("the one question is asked once, only when nobody is near, and its answer re-reads the idea", async () => {
-  const w = world((t) => (/cornell/.test(t) ? { kind: "context", problem: 8, fact: "cornell sophomore", plays: ["pitch it at appdev"] } : { ask: "you in college?" }));
+  const w = world((t) => (/cornell/.test(t) ? { kind: "context", problem: 8, fact: "cornell sophomore", plays: ["pitch it at appdev"] } : { ask: "college" }));
   await w.text("+15550001", "open library seats by text");
   assert.match(w.said("+15550001"), /you in college\?$/);
   await w.text("+15550001", "yeah im a sophomore at cornell");
@@ -75,6 +84,28 @@ test("an intro asks the new builder first, and swaps numbers only when both say 
     ["+15550001", "Sam", "+15550002"],
   ]);
   assert.equal(w.store.intros()[0].status, "connected");
+});
+
+test("two ideas that only share an audience are not introduced", async () => {
+  const w = world(() => ({}), false);
+  await w.text("+15550001", "a dorm laundry tracker");
+  await w.text("+15550002", "a way to share class notes");
+  assert.match(w.said("+15550002"), /nobody's near this yet/);
+  assert.equal(w.store.intros().length, 0);
+});
+
+test("an open intro: ok is not consent, a question gets an answer, later keeps it open", async () => {
+  const w = world();
+  await w.text("+15550001", "open library seats by text");
+  await w.text("+15550002", "library seat tracker");
+  await w.text("+15550002", "ok");
+  assert.match(w.last("+15550002"), /is that a yes to the intro/);
+  await w.text("+15550002", "who is it?");
+  assert.match(w.last("+15550002"), /can't say who until they're in too\. they're on "Library seat finder" \(60\/100\)/);
+  await w.text("+15550002", "maybe later");
+  assert.match(w.last("+15550002"), /no rush/);
+  assert.equal(w.store.intros()[0].status, "offered");
+  assert.doesNotMatch(w.said("+15550001"), /wants to meet you/);
 });
 
 test("a no ends it quietly, and nobody's number moves", async () => {
@@ -112,12 +143,50 @@ test("forget me wipes the ideas, the record and any open intro", async () => {
 
 test("an answer and a new idea in one text is a new idea, and the old one is left alone", async () => {
   // The model gets this wrong on its own (it calls the whole text an answer), which is how it was found.
-  const w = world((t) => (/new idea/i.test(t) ? { kind: "context", title: "Persona prank bot", gist: "friends prank each other", problem: 4, fix: 2 } : { ask: "you already have users?" }));
+  const w = world((t) => (/new idea/i.test(t) ? { kind: "context", title: "Persona prank bot", gist: "friends prank each other", branch: "pranks", problem: 4, fix: 2 } : { ask: "users" }));
   await w.text("+15550001", "a text line that scores ideas");
+  assert.match(w.last("+15550001"), /you already have users\?/);
   await w.text("+15550001", "No I'll go do that tho. New idea is a persona bot to prank your friends");
   const mine = w.store.ideasBy("+15550001");
   assert.deepEqual(mine.map((i) => [i.title, i.score]), [["Library seat finder", 60], ["Persona prank bot", 30]]);
   assert.equal(mine[0].was, undefined);
+});
+
+test("delete that really deletes, and scratch that swaps the last idea for the new one", async () => {
+  const w = world((t) => (/standup/.test(t) ? { title: "Standup bot", branch: "standups" } : {}));
+  await w.text("+15550001", "a browser extension that blocks shorts");
+  await w.text("+15550001", "delete that");
+  assert.match(w.last("+15550001"), /gone\. it's off the map/);
+  assert.equal(w.store.ideasBy("+15550001").length, 0);
+  await w.text("+15550001", "a discord bot that summarizes chats");
+  await w.text("+15550001", "actually scratch that, new idea: a slack bot that writes standup updates");
+  assert.deepEqual(w.store.ideasBy("+15550001").map((i) => i.title), ["Standup bot"]);
+});
+
+test("who's near me is answered from the store, never by the model", async () => {
+  const w = world(() => ({ kind: "chat", reply: "you've got a few builders near you" }));
+  await w.text("+15550001", "who's near me");
+  assert.doesNotMatch(w.said("+15550001"), /a few builders/);
+  const w2 = world();
+  await w2.text("+15550001", "open library seats by text");
+  await w2.text("+15550001", "who's near me?");
+  assert.match(w2.last("+15550001"), /nobody's near this yet/);
+});
+
+test("reactions get no reply once you have an idea; a newcomer still gets told what this is", async () => {
+  const w = world();
+  await w.text("+15550001", "lol");
+  assert.match(w.last("+15550001"), /text me an idea/);
+  await w.text("+15550001", "open library seats by text");
+  const before = w.sent.length;
+  await w.text("+15550001", "lol");
+  await w.text("+15550001", "ok");
+  await w.text("+15550001", "🔥🔥");
+  assert.equal(w.sent.length, before);
+  await w.text("+15550001", "thanks");
+  assert.equal(w.last("+15550001"), "anytime.");
+  await w.text("+15550001", "?");
+  assert.match(w.last("+15550001"), /score = 10 x problem - 5 x fix/);
 });
 
 test("me reads back what it knows, and me: replaces it and re-reads the last idea", async () => {

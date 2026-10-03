@@ -1,8 +1,8 @@
 // One inbound text in, messages out. Transport-free, so the iMessage agent and the terminal harness share it.
 // Every reply is a decision (the score) or a connection (an intro). Nothing else gets sent.
-import { read as readBrain, embed as embedBrain, type Read, type BrainContext } from "./brain.js";
+import { read as readBrain, embed as embedBrain, judge as judgeBrain, type Read, type BrainContext } from "./brain.js";
 import { score, call } from "./score.js";
-import { nearest } from "./match.js";
+import { candidates, nearest, CLOSE, SURE } from "./match.js";
 import { newId, type Idea, type Intro, type Store, type User } from "./store.js";
 
 /** What the core wants sent. The transport decides how (bubble, tapback, effect, contact card). */
@@ -17,6 +17,8 @@ export type Deps = {
   send: (to: string, out: Out[]) => Promise<void>;
   brain?: (text: string, ctx: BrainContext) => Promise<Read>;
   embed?: (text: string) => Promise<number[] | undefined>;
+  /** Same problem, same kind of person? Undefined when it could not be asked. */
+  judge?: (a: Idea, b: Idea) => Promise<boolean | undefined>;
   /** Only texted when it is a real public URL. */
   mapUrl?: string;
   /** Something the map shows has changed. */
@@ -28,7 +30,10 @@ const t = (text: string, effect?: "slam" | "confetti"): Out => ({ type: "text", 
 // Every word the agent can say that the model didn't write. Tone: a sharp friend texting. Lowercase, short, no filler.
 const copy = {
   pitch: "text me an idea or what you're building. i score it out of 100 and connect you w/ the builders closest to it.",
-  how: "score = 10 x problem - 5 x fix, both rated 0-10. the problem counts double, the fix counts against you.\nalso: mine, me, private, public, map, stop, forget me.",
+  how: "score = 10 x problem - 5 x fix, both rated 0-10. the problem counts double, the fix counts against you.\nalso: mine, me, near, delete, private, public, map, stop, forget me.",
+  // The one question, once. The model picks which; the wording is fixed so it never turns into an interview.
+  ask: { college: "you in college?", self: "you have this problem yourself?", users: "you already have users?" },
+  more: "text the other idea on its own and i'll score that too.",
   meEmpty: 'nothing yet. text "me: ..." and tell me anything: school, what you do, who you build for.',
   meSet: "got it. that's what i know about you now.",
   call: { build: "build it.", sharpen: "sharpen it.", drop: "drop it or flip it." },
@@ -38,12 +43,16 @@ const copy = {
   empty: "nothing yet. text me an idea or what you're building.",
   private: "kept private. off the map, no intros.",
   public: "back on the map.",
+  gone: "gone. it's off the map.",
   noIdea: "no idea to change yet. text me one.",
   muted: 'done. no more intros or pings from me. text "start" to undo.',
   forgotten: "done. your ideas, your number and your intros are wiped on my side.",
   unmuted: "you're back in.",
+  thanks: "anytime.",
   busy: "that's a lot for one hour. pick your best one and text it tmrw.",
   down: "my brain's down for a sec. text that again in a min.",
+  introAck: "is that a yes to the intro? reply yes or no.",
+  introLater: "no rush. reply yes or no whenever.",
   declinedA: "no intro. nobody's told.",
   askedB: "asked them. you get their number the second they're in.",
   declinedB: "all good. they're not told why.",
@@ -51,7 +60,8 @@ const copy = {
   noMap: "the map isn't public yet. ask whoever showed you this.",
 };
 
-const YES = /^(y|yes|yea|yeah|yep|yup|ya|sure|ok|okay|k|bet|down|in|i'?m in|do it|let'?s do it|pls|please|def|definitely|for sure|absolutely)\b/i;
+// Swapping numbers needs a real yes. "ok" and "k" are acknowledgements, not consent, so they are not on this list.
+const YES = /^(y|yes|yea|yeah|yep|yup|ya|sure|bet|down|in|i'?m in|do it|let'?s do it|pls|please|def|definitely|for sure|absolutely)\b/i;
 const NO = /^(n|no|nope|nah|pass|not now|no thanks|skip)\b/i;
 const NOT_A_NAME = new Set(
   "please pls thanks thank thx sure intro do it lol yes yeah ok okay lets let's go and the a an to me my name is im i'm i am this its it's call down in for now rn".split(" "),
@@ -73,55 +83,79 @@ export function yesNo(text: string): { yes: boolean; name?: string } | undefined
   return { yes: true, name: words.map((w) => w[0].toUpperCase() + w.slice(1)).join(" ") };
 }
 
+/** A reaction, not a message: nothing here needs an answer. */
+const ACK = /^(lol|lmao|lmfao|ha(ha)+|he(he)+|ok|okay|k|kk|cool|nice|word|got it|sounds good|ight|aight|alright|wow|damn|fr|true|facts|thanks|thank you|thx|ty)$/;
+const EMOJI_ONLY = /^[\p{Extended_Pictographic}‍️\s]+$/u;
 const ABOUT_ME = /^(?:about me|me)\s*[:,-]\s*(.+)$/is;
 /** "new idea", "another one": the text says outright that it is pitching something new. */
 const FRESH = /\b(new|another|different|next|second|other)\s+(idea|one)\b|\bscratch that\b/i;
-
+/** "scratch that, ..." at the very start: drop the last idea, then read the rest. */
+const SCRATCH = /^(?:actually[\s,]+)?(?:scratch|forget|ignore|nvm|never ?mind)(?:\s+(?:that|it|the last one))?[\s,.:-]+(?=\S)/i;
+const DELETE = /^(?:(?:delete|remove|undo|scratch|drop|erase)(?:\s+(?:that|it|this|that one|my last idea|the last one|my idea))?|nvm|never ?mind)$/;
+const NEAR = /^(?:(?:who'?s|whos|who is|anyone|anybody|who else)\b.*\b(?:near|close|nearby|similar)\b.*|near|nearby|near me|close to me)$/;
 /** "private: my idea" keeps it off the map from the start. The colon matters: "private equity tracker" is just an idea. */
 const PRIVATE = /^private\s*[:,-]\s*/i;
 
 const scoreLine = (i: Pick<Idea, "score" | "problem" | "fix">) => `${i.score}/100\nproblem ${i.problem} · fix ${i.fix}`;
+const count = (s: string) => s.split(/\s+/).filter(Boolean).length;
 
 export async function handle(sender: string, raw: string, d: Deps, image?: BrainContext["image"]) {
-  const text = raw.trim().slice(0, 4000);
+  let text = raw.trim().slice(0, 4000);
   if (!text && !image) return;
   const { store } = d;
   const user = store.user(sender);
-  const lower = text.toLowerCase().replace(/[.!?]+$/, "");
+  const lower = text.toLowerCase().replace(/[.!]+$/, "").trim();
+  const bare = lower.replace(/\?+$/, "").trim();
   const say = (...out: Out[]) => d.send(sender, out);
 
-  if (/^(stop|unsubscribe|quit|leave me alone)$/.test(lower)) {
+  if (/^(stop|unsubscribe|quit|leave me alone)$/.test(bare)) {
     store.saveUser({ ...user, muted: true, pending: [] });
     return say(t(copy.muted));
   }
-  if (/^(forget me|delete me|delete my (data|ideas|stuff))$/.test(lower)) {
+  if (/^(forget me|delete me|delete my (data|ideas|stuff))$/.test(bare)) {
     store.forget(sender);
     d.changed?.();
     return say(t(copy.forgotten));
   }
-  if (lower === "start" && user.muted) {
+  if (bare === "start" && user.muted) {
     store.saveUser({ ...user, muted: false });
     return say(t(copy.unmuted));
   }
 
-  // An open intro question owns a short yes or no. Anything longer is treated as a normal text.
+  // An open intro question owns a short yes or no, and anything that is plainly about it.
   const top = user.pending.at(-1);
   const yn = yesNo(text);
-  if (yn && top?.kind === "intro") {
-    user.pending.pop();
-    if (yn.name && !user.name) user.name = yn.name;
-    store.saveUser(user);
-    return answerIntro(user, top.introId, yn.yes, d);
+  if (top?.kind === "intro") {
+    if (yn) {
+      user.pending.pop();
+      if (yn.name && !user.name) user.name = yn.name;
+      store.saveUser(user);
+      return answerIntro(user, top.introId, yn.yes, d);
+    }
+    const intro = store.intro(top.introId);
+    const theirs = store.idea((intro?.a === sender ? intro?.ideaB : intro?.ideaA) ?? "");
+    if (ACK.test(bare)) return say(t(copy.introAck));
+    if (/^(maybe|later|not yet|idk|i don'?t know|let me think|hm+)\b/.test(bare) && count(bare) <= 5) return say(t(copy.introLater));
+    if (theirs && /^(who|what|which|tell me|more|details|whats|what's)\b/.test(bare) && count(bare) <= 8) {
+      return say(t(`can't say who until they're in too. they're on "${theirs.title}" (${theirs.score}/100). yes or no?`));
+    }
   }
   if (yn && !yn.name && !top) return say(t(copy.nothingOpen));
 
-  if (/^(mine|my ideas|list)$/.test(lower)) {
+  // Reactions get no answer. Someone brand new still gets told what this is.
+  if (!image && (ACK.test(bare) || EMOJI_ONLY.test(text))) {
+    if (!store.ideasBy(sender).length) return say(t(copy.pitch));
+    return /^(thanks|thank you|thx|ty)$/.test(bare) ? say(t(copy.thanks)) : undefined;
+  }
+
+  if (/^(mine|my ideas|list)$/.test(bare)) {
     const mine = store.ideasBy(sender);
     if (!mine.length) return say(t(copy.empty));
     return say(t(mine.map((i, n) => `${n + 1}. ${i.title}, ${i.score}${i.private ? " (private)" : ""}`).join("\n")));
   }
+
   // What it knows about you is one box of text. "me" reads it back, "me: ..." replaces it.
-  if (/^(me|about me|what do you know about me)$/.test(lower)) {
+  if (/^(me|about me|what do you know about me)$/.test(bare)) {
     return say(t(user.facts.length ? `what i know: ${user.facts.join(". ")}.\ntext "me: ..." to replace it.` : copy.meEmpty));
   }
   const me = text.match(ABOUT_ME);
@@ -133,18 +167,35 @@ export async function handle(sender: string, raw: string, d: Deps, image?: Brain
     await say(t(copy.meSet));
     // Falls through: the new context re-reads their last idea.
   }
-  if (/^(map|the map|show me the map)$/.test(lower)) {
+
+  if (/^(map|the map|show me the map)$/.test(bare)) {
     return say(t(d.mapUrl && !/localhost|127\.0\.0\.1/.test(d.mapUrl) ? d.mapUrl : copy.noMap));
   }
-  // "why", "help", "how do you score it", "how does the score work": the math, in one text.
+  // "why", "help", "?", "how do you score it", "how does the score work": the math, in one text.
   if (
-    /^(why|how|help|\?|commands|score|how (does|do) (this|it|you) work)$/.test(lower) ||
-    (/^(how|why|what)\b.*\b(scor\w*|rated|rating|math)\b/.test(lower) && lower.split(/\s+/).length <= 9)
+    lower === "?" ||
+    /^(why|how|help|commands|score|how (does|do) (this|it|you) work)$/.test(bare) ||
+    (/^(how|why|what)\b.*\b(scor\w*|rated|rating|math)\b/.test(bare) && count(bare) <= 9)
   ) {
     return say(t(copy.how));
   }
 
-  const vis = lower.match(/^(?:make it |keep it |go )?(public|private)(?:\s+#?(\d+))?$/);
+  // "who's near me": only what the store knows. The model is never asked, so it can never make someone up.
+  if (NEAR.test(bare) && count(bare) <= 8) {
+    const idea = store.idea(user.lastIdea ?? "") ?? store.ideasBy(sender).at(-1);
+    if (!idea) return say(t(copy.empty));
+    if (idea.private) return say(t(copy.private));
+    return offerIntro(idea, user, d);
+  }
+
+  if (DELETE.test(bare)) {
+    const idea = store.idea(user.lastIdea ?? "") ?? store.ideasBy(sender).at(-1);
+    if (!idea) return say(t(copy.noIdea));
+    drop(idea, store.user(sender), d);
+    return say(t(copy.gone));
+  }
+
+  const vis = bare.match(/^(?:make it |keep it |go )?(public|private)(?:\s+#?(\d+))?$/);
   if (vis) {
     const mine = store.ideasBy(sender);
     const idea = vis[2] ? mine[Number(vis[2]) - 1] : (store.idea(user.lastIdea ?? "") ?? mine.at(-1));
@@ -160,9 +211,18 @@ export async function handle(sender: string, raw: string, d: Deps, image?: Brain
   const hourAgo = Date.now() - 3600_000;
   if (store.ideasBy(sender).filter((i) => Date.parse(i.created) > hourAgo).length >= 20) return say(t(copy.busy));
 
+  // "scratch that, new idea: ..." means it: the last idea goes, then the rest is read as the new one.
+  if (SCRATCH.test(text) && count(text.replace(SCRATCH, "")) >= 3) {
+    const gone = store.idea(user.lastIdea ?? "");
+    if (gone) drop(gone, store.user(sender), d);
+    text = text.replace(SCRATCH, "");
+  }
+
   // Everything else goes to the brain: a new idea, more context on the last one, or small talk.
+  const fresh = store.user(sender);
+  Object.assign(user, { pending: fresh.pending, lastIdea: fresh.lastIdea });
   const last = store.idea(user.lastIdea ?? "");
-  const openAsk = top?.kind === "ask" ? top : undefined;
+  const openAsk = user.pending.at(-1)?.kind === "ask" ? (user.pending.at(-1) as { kind: "ask"; ideaId: string; question: string }) : undefined;
   let r: Read;
   try {
     r = await (d.brain ?? readBrain)(text.replace(PRIVATE, ""), {
@@ -187,7 +247,9 @@ export async function handle(sender: string, raw: string, d: Deps, image?: Brain
 
   if (r.kind === "chat" || (r.kind === "context" && !last)) {
     store.saveUser(user);
-    return say(t(r.kind === "chat" && r.reply ? r.reply : copy.pitch));
+    if (r.kind === "chat" && r.reply) return say(t(r.reply));
+    // Nothing worth saying back. Someone who has not sent an idea yet still gets told what this is.
+    return store.ideasBy(sender).length ? undefined : say(t(copy.pitch));
   }
 
   if (r.kind === "context" && last) return addContext(user, store.idea(openAsk?.ideaId ?? "") ?? last, r, d);
@@ -214,25 +276,30 @@ export async function handle(sender: string, raw: string, d: Deps, image?: Brain
   store.addIdea(idea);
   user.lastIdea = idea.id;
   user.pending = user.pending.filter((p) => p.kind !== "ask");
+  store.saveUser(user);
   d.changed?.();
 
   const out: Out[] = [];
   if (s >= 40) out.push({ type: "react", emoji: s >= 70 ? "love" : "like" });
   out.push(t(scoreLine(idea), s >= 80 ? "slam" : undefined));
   out.push(t(`${copy.call[call(s)]} ${r.verdict}${r.move ? `\nnext: ${r.move}` : ""}`));
+  if (r.more) out.push(t(copy.more));
   if (idea.private) out.push(t(copy.private));
-
-  store.saveUser(user);
+  // The score goes out first. Working out who is close happens while they are reading it.
   await say(...out);
   if (idea.private) return;
+  await link(idea, d);
+  d.changed?.();
+
   // A connection beats a question. The one question only gets asked when nobody is close yet,
   // and not when this same text already told us who they are.
-  const mayAsk = Boolean(r.ask) && !r.fact && !user.facts.length && !user.askedOn;
+  const mayAsk = r.ask && !r.fact && !user.facts.length && !user.askedOn;
   if (mayAsk && !closeTo(idea, user, store).length) {
-    user.pending.push({ kind: "ask", ideaId: idea.id, question: r.ask });
+    const question = copy.ask[r.ask as keyof typeof copy.ask];
+    user.pending.push({ kind: "ask", ideaId: idea.id, question });
     user.askedOn = idea.id;
     store.saveUser(user);
-    return say(t(r.ask));
+    return say(t(question));
   }
   await offerIntro(idea, store.user(sender), d);
 }
@@ -252,17 +319,43 @@ async function addContext(user: User, idea: Idea, r: Read, d: Deps) {
   store.saveUser(user);
   d.changed?.();
 
-  // Only say the number again if it moved. Otherwise the new context pays off as plays.
-  const plays = r.plays.length ? `\n${r.plays.map((p, n) => `${n + 1}. ${p}`).join("\n")}` : r.move ? `\nnext: ${r.move}` : "";
+  // Only say the number again if it moved. Otherwise the new context pays off as plays, or not at all.
+  const plays = r.plays.length ? `\n${r.plays.map((p, n) => `${n + 1}. ${p}`).join("\n")}` : "";
   const out: Out[] =
     s === before
-      ? [t(`still ${s}/100. ${r.verdict}${plays}`)]
+      ? [t(plays ? `still ${s}/100. ${r.verdict}${plays}` : `still ${s}/100.`)]
       : [
           t(`${s}/100 now, was ${before}\nproblem ${idea.problem} · fix ${idea.fix}`, s >= 80 && s > before ? "slam" : undefined),
-          t(`${copy.call[call(s)]} ${r.verdict}${plays}`),
+          t(`${copy.call[call(s)]} ${r.verdict}${plays || (r.move ? `\nnext: ${r.move}` : "")}`),
         ];
   await d.send(user.id, out);
   if (!idea.private && !store.intros().some((x) => x.ideaA === idea.id)) await offerIntro(idea, store.user(user.id), d);
+}
+
+/** Work out which other builders are on the same problem, once, and remember it on both ideas. */
+async function link(idea: Idea, d: Deps) {
+  const { store } = d;
+  for (const c of candidates(idea, store)) {
+    // Very close is close. In between, ask. If the question can't be asked, fall back to the stricter number.
+    const same = c.sim >= SURE || ((await (d.judge ?? judgeBrain)(idea, c.idea)) ?? c.sim >= CLOSE);
+    if (!same) continue;
+    idea.near = [...new Set([...(idea.near ?? []), c.idea.id])];
+    const other = store.idea(c.idea.id);
+    if (other) store.saveIdea({ ...other, near: [...new Set([...(other.near ?? []), idea.id])] });
+  }
+  store.saveIdea(idea);
+}
+
+/** Take an idea off the books: the idea, its links, and any intro that was about it. */
+function drop(idea: Idea, user: User, d: Deps) {
+  const { store } = d;
+  store.removeIdea(idea.id);
+  const u = store.user(user.id);
+  u.pending = u.pending.filter((p) => !(p.kind === "ask" && p.ideaId === idea.id));
+  u.lastIdea = store.ideasBy(user.id).at(-1)?.id;
+  if (u.askedOn === idea.id) u.askedOn = u.lastIdea ?? idea.id;
+  store.saveUser(u);
+  d.changed?.();
 }
 
 /** Close builders this person has not already been offered. */
@@ -285,9 +378,8 @@ async function offerIntro(idea: Idea, user: User, d: Deps) {
   store.addIntro(intro);
   user.pending.push({ kind: "intro", introId: intro.id });
   store.saveUser(user);
-  const count = near.length === 1 ? "one builder's close." : `${near.length} builders are close.`;
-  const who = `${near.length === 1 ? "they're" : "the closest is"} on "${pick.title}" (${pick.score}/100).`;
-  await d.send(user.id, [t(`${count} ${who}\nwant an intro? i swap your numbers if they're in too. ${nameAsk(user)}`), ...fyi]);
+  const who = near.length === 1 ? `one builder's close. they're on "${pick.title}" (${pick.score}/100).` : `${near.length} builders are close. the closest is on "${pick.title}" (${pick.score}/100).`;
+  await d.send(user.id, [t(`${who}\nwant an intro? i swap your numbers if they're in too. ${nameAsk(user)}`), ...fyi]);
 }
 
 const nameAsk = (u: User) => (u.name ? "yes / no" : "reply yes + your first name");

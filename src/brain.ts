@@ -12,8 +12,10 @@ export type Read = {
   fix: number;
   verdict: string;
   move: string;
-  /** One pivotal question, or empty. */
-  ask: string;
+  /** Which of the three pivotal questions to ask, if any. Code owns the wording. */
+  ask: "" | "college" | "self" | "users";
+  /** The text held more than one idea. Only the first was rated. */
+  more: boolean;
   /** A durable fact the sender revealed about themselves, or empty. */
   fact: string;
   /** Moves a new fact unlocked (kind "context"). */
@@ -58,12 +60,13 @@ FIELDS
 - branch: the specific theme inside that trunk, 1-3 lowercase words. Reuse an existing branch only when this idea is about the same thing. An idea about something else gets its own branch: never file an idea under a branch just because it exists.
 - verdict: ONE short sentence. Why the two numbers are what they are, and which side to push: cut the fix, or go after a sharper pain. Code prepends the call (build it / sharpen it / drop it), so never state the call yourself.
 - move: ONE concrete thing to do in the next 24 hours to test it. Name the kind of person or place.
-- ask: empty unless ASK ALLOWED is yes. When it is yes you know nothing about the sender, so ask the ONE question about the builder's leverage whose answer changes the most at once: where they sit ("you in college?" unlocks clubs, campus resources and a captive first audience), whether they live the problem ("you have this problem yourself?"), or how far along they are ("you already have users?"). Never a detail of the idea and never their hobbies or things they own ("what kind of freelance work?", "you have a dog?" and "you live near mountains?" are bad). Under 8 words. If this text already tells you who they are, leave it empty.
+- ask: "none" unless ASK ALLOWED is yes. When it is yes you know nothing about the sender, so pick the ONE question about the builder's leverage whose answer would change the most: "college" (are they in college: unlocks clubs, campus resources, a captive first audience), "self" (do they have this problem themselves), "users" (do they already have users). If this text already tells you who they are, "none".
+- more: true only if the text pitches more than one separate idea. Rate the first one.
 - fact: a durable fact the sender revealed about themselves in THIS message (school, job, role, city), as a short phrase. Otherwise empty.
 - plays: kind "context" only, when the new fact opens moves. 2-3 very short specific plays that fact unlocks. Name only resources you are confident exist. Otherwise name the kind of resource.
-- reply: kind "chat" only. One short line. If they ask what you do: text me an idea or what you're building, i score it out of 100 and connect you w/ the builders closest to it. If they ask how the score works: score = 10 x problem - 5 x fix, both 0-10. the problem counts double, the fix counts against you.
+- reply: kind "chat" only. One short line that answers what they actually asked, using what you know (their last idea and its two numbers). If they ask what you are or say hi: text me an idea or what you're building, i score it out of 100 and connect you w/ the builders closest to it. If they ask how the score works or how you know: i rate how much the problem hurts and what the fix costs to adopt, then score = 10 x problem - 5 x fix. If it is only a reaction (lol, ok, an emoji), reply is empty. You cannot delete, change or look anything up, and you know nothing about other builders or the map: never say you did something and never describe who else is out there.
 
-VOICE for verdict, move, ask, plays and reply: a sharp friend texting. lowercase. very concise. a few common abbreviations are fine (w/, bc, rn, ppl, vs). still professional: no slang for show, no emojis, no hype, no hedging, no em dashes, no semicolons. verdict under 22 words. move under 18 words. each play under 12 words.`;
+VOICE for verdict, move, plays and reply: a sharp friend texting. lowercase. very concise. a few common abbreviations are fine (w/, bc, rn, ppl, vs). still professional: no slang for show, no emojis, no hype, no hedging, no em dashes, no semicolons. verdict under 22 words. move under 18 words. each play under 12 words.`;
 
 const schema = {
   type: Type.OBJECT,
@@ -77,7 +80,8 @@ const schema = {
     fix: { type: Type.INTEGER },
     verdict: { type: Type.STRING },
     move: { type: Type.STRING },
-    ask: { type: Type.STRING },
+    ask: { type: Type.STRING, enum: ["none", "college", "self", "users"] },
+    more: { type: Type.BOOLEAN },
     fact: { type: Type.STRING },
     plays: { type: Type.ARRAY, items: { type: Type.STRING } },
     reply: { type: Type.STRING },
@@ -112,7 +116,8 @@ function tidy(r: Partial<Read>): Read {
     fix: rate(r.fix),
     verdict: brief1(voice(r.verdict), 30),
     move: voice(r.move).replace(/^next:\s*/i, ""),
-    ask: voice(r.ask),
+    ask: r.ask === "college" || r.ask === "self" || r.ask === "users" ? r.ask : "",
+    more: Boolean(r.more),
     fact: voice(r.fact),
     plays: (r.plays ?? []).map(voice).filter(Boolean).slice(0, 3),
     reply: voice(r.reply),
@@ -136,8 +141,9 @@ function brief(text: string, ctx: BrainContext) {
     .join("\n\n");
 }
 
+// The free key allows about 15 reads a minute per model, so the backups matter: each has its own allowance.
 const models = () =>
-  [process.env.GEMINI_MODEL || "gemini-3.5-flash-lite", ...(process.env.GEMINI_FALLBACK || "gemini-flash-lite-latest,gemini-3.8-flash,gemini-3.6-flash").split(",")]
+  [process.env.GEMINI_MODEL || "gemini-3.5-flash-lite", ...(process.env.GEMINI_FALLBACK || "gemini-3.1-flash-lite,gemini-3.6-flash,gemini-3.8-flash").split(",")]
     .map((m) => m.trim())
     .filter((m, i, a) => m && a.indexOf(m) === i);
 
@@ -151,31 +157,50 @@ export async function read(text: string, ctx: BrainContext): Promise<Read> {
   const parts: object[] = [{ text: brief(text, ctx) }];
   if (ctx.image) parts.push({ inlineData: { mimeType: ctx.image.mimeType, data: ctx.image.data.toString("base64") } });
   let last: unknown;
-  // "Instantly" is the promise, so the fast model goes first (about a second). The rest are there so a busy model never means silence.
-  for (const model of models()) {
+  // "Instantly" is the promise, so the fast model goes first (about a second). The rest are there so a busy model
+  // never means silence. If every one of them is rate limited, wait a few seconds and go round once more.
+  for (const round of [0, 1]) {
+    if (round) await new Promise((r) => setTimeout(r, 6000));
+    for (const model of models()) {
+      try {
+        const res = await ai().models.generateContent({
+          model,
+          contents: [{ role: "user", parts }],
+          config: { systemInstruction: SYSTEM, responseMimeType: "application/json", responseSchema: schema, temperature: 0, httpOptions: { timeout: 10_000 } },
+        });
+        const r = tidy(JSON.parse(res.text ?? "{}"));
+        // A read with no ratings or no words is a failed read, not a zero.
+        if (r.kind !== "chat" && (!r.problem || !r.verdict)) throw new Error("empty read");
+        if (process.env.DEBUG_BRAIN) console.error(`brain: ${model}`);
+        return r;
+      } catch (err) {
+        last = err;
+        console.error(`brain: ${model} failed, ${String((err as Error)?.message ?? err).slice(0, 160)}`);
+      }
+    }
+    if (!/"code":429|RESOURCE_EXHAUSTED/.test(String((last as Error)?.message ?? last))) break;
+  }
+  throw last;
+}
+
+/** Are two ideas the same problem for the same kind of person? The closeness score finds candidates; this decides.
+ *  Undefined when it could not be asked. Runs on the backup model first, so it never competes with scoring. */
+export async function judge(a: { title: string; gist: string }, b: { title: string; gist: string }): Promise<boolean | undefined> {
+  if (!online()) return undefined;
+  const prompt = `Two builders each texted an idea.\nA: ${a.title}. ${a.gist}\nB: ${b.title}. ${b.gist}\nWould these two get real value from meeting because they are working on the same problem for the same kind of person? Sharing an audience (both for students) or a format (both text bots) is not enough.`;
+  for (const model of [...models().slice(1, 2), ...models().slice(0, 1)]) {
     try {
       const res = await ai().models.generateContent({
         model,
-        contents: [{ role: "user", parts }],
-        config: {
-          systemInstruction: SYSTEM,
-          responseMimeType: "application/json",
-          responseSchema: schema,
-          temperature: 0,
-          httpOptions: { timeout: 10_000 },
-        },
+        contents: prompt,
+        config: { responseMimeType: "application/json", responseSchema: { type: Type.OBJECT, properties: { same: { type: Type.BOOLEAN } }, required: ["same"] }, temperature: 0, httpOptions: { timeout: 10_000 } },
       });
-      const r = tidy(JSON.parse(res.text ?? "{}"));
-      // A read with no ratings or no words is a failed read, not a zero.
-      if (r.kind !== "chat" && (!r.problem || !r.verdict)) throw new Error("empty read");
-      if (process.env.DEBUG_BRAIN) console.error(`brain: ${model}`);
-      return r;
+      return Boolean(JSON.parse(res.text ?? "{}").same);
     } catch (err) {
-      last = err;
-      console.error(`brain: ${model} failed, ${String((err as Error)?.message ?? err).slice(0, 160)}`);
+      console.error(`brain: judge on ${model} failed, ${String((err as Error)?.message ?? err).slice(0, 120)}`);
     }
   }
-  throw last;
+  return undefined;
 }
 
 /** A unit vector for "how close are two ideas". Undefined when offline or the call fails: matching falls back to branches. */
@@ -185,7 +210,7 @@ export async function embed(text: string): Promise<number[] | undefined> {
     const res = await ai().models.embedContent({
       model: process.env.GEMINI_EMBED_MODEL || "gemini-embedding-001",
       contents: [text],
-      config: { outputDimensionality: 256, taskType: "SEMANTIC_SIMILARITY", httpOptions: { timeout: 8_000 } },
+      config: { outputDimensionality: 256, taskType: "SEMANTIC_SIMILARITY", httpOptions: { timeout: 10_000 } },
     });
     const v = res.embeddings?.[0]?.values;
     if (!v?.length) return undefined;
@@ -227,7 +252,7 @@ function stub(text: string, ctx: BrainContext): Read {
     fix: 4 + (/\bapp\b|download|sign up|dashboard/.test(text) ? 2 : 0) - (/\btext\b|imessage|sms/.test(text) ? 2 : 0),
     verdict: "offline stub, add GEMINI_API_KEY for a real read.",
     move: "ask three ppl who have this problem how they handle it today.",
-    ask: ctx.mayAsk && !ctx.facts.length ? "you in college?" : "",
+    ask: ctx.mayAsk && !ctx.facts.length ? "college" : "",
   });
 }
 

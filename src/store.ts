@@ -22,6 +22,8 @@ export type Idea = {
   /** Seeded demo data. Shown on the map, never matched or messaged. */
   sample?: boolean;
   vec?: number[];
+  /** Ids of other builders' ideas on the same problem. Worked out once, when the idea lands. */
+  near?: string[];
   /** Earlier readings, oldest first, when new context moved the score. */
   was?: Reading[];
   created: string;
@@ -72,6 +74,8 @@ export interface Store {
   saveIntro(x: Intro): void;
   introBetween(a: string, b: string): Intro | undefined;
   intros(): Intro[];
+  /** Take one idea off the books, with its links and any intro that was about it. */
+  removeIdea(id: string): void;
   /** Wipe one person: their ideas, their record, and any intro they were part of. */
   forget(id: string): void;
 }
@@ -149,13 +153,21 @@ export class JsonStore implements Store {
   intros() {
     return this.db.intros;
   }
+  // Ideas go, and so does every trace of them: links from other ideas, intros about them, and the open
+  // questions those intros left with other people.
+  private purge(ideas: Set<string>, intros: Set<string>) {
+    this.db.ideas = this.db.ideas.filter((i) => !ideas.has(i.id));
+    for (const i of this.db.ideas) if (i.near) i.near = i.near.filter((n) => !ideas.has(n));
+    this.db.intros = this.db.intros.filter((x) => !intros.has(x.id));
+    for (const u of Object.values(this.db.users)) u.pending = u.pending.filter((p) => p.kind !== "intro" || !intros.has(p.introId));
+  }
+  removeIdea(id: string) {
+    this.purge(new Set([id]), new Set(this.db.intros.filter((x) => (x.ideaA === id || x.ideaB === id) && x.status !== "connected").map((x) => x.id)));
+    this.flush();
+  }
   forget(id: string) {
-    const gone = new Set(this.db.intros.filter((x) => x.a === id || x.b === id).map((x) => x.id));
-    this.db.ideas = this.db.ideas.filter((i) => i.owner !== id);
-    this.db.intros = this.db.intros.filter((x) => !gone.has(x.id));
+    this.purge(new Set(this.db.ideas.filter((i) => i.owner === id).map((i) => i.id)), new Set(this.db.intros.filter((x) => x.a === id || x.b === id).map((x) => x.id)));
     delete this.db.users[id];
-    // Nobody else should be left holding a question about an intro that no longer exists.
-    for (const u of Object.values(this.db.users)) u.pending = u.pending.filter((p) => p.kind !== "intro" || !gone.has(p.introId));
     this.flush();
   }
   /** Seeder only: drop ideas matching the test. With everything = true, forget people and intros too. */

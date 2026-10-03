@@ -30,8 +30,8 @@ Bearing tries to pass its own test: there is no app, no signup and nothing to le
 3. **A connection.** If another builder is close to your idea, it offers an intro. They only hear about it after
    you say yes, and numbers are only swapped when both of you say yes. Then each side gets a contact card.
 
-Also: `mine`, `me` (what it knows about you, one box you can replace with `me: ...`), `private`, `public`, `why`,
-`map`, `stop`, `forget me`. Start a text with `private:` to keep an idea off the map.
+Also: `mine`, `me` (what it knows about you, one box you can replace with `me: ...`), `near`, `delete`,
+`private`, `public`, `why`, `map`, `stop`, `forget me`. Start a text with `private:` to keep an idea off the map.
 A photo of a whiteboard works as an idea. A thumbs-up on the intro question counts as a yes.
 
 ## The map
@@ -74,7 +74,7 @@ real number gets a real iMessage.
 | `src/core.ts` | The conversation. One text in, messages out. No transport in it. |
 | `src/brain.ts` | Gemini rates problem and fix and writes the words. JSON schema, a fast model first, fallbacks behind it. |
 | `src/score.ts` | The math. Six lines. |
-| `src/match.ts` | "Closest" = cosine distance between idea embeddings. |
+| `src/match.ts` | "Closest" in two steps: embeddings find candidates, then a yes/no read decides if it is really the same problem. |
 | `src/agent.ts` | iMessage through Spectrum: settles bursts, read receipts, typing, tapbacks, effects, contact cards. |
 | `src/photon.ts` | Photon's management API: register a number, get the link that opens Messages. |
 | `src/server.ts` | The map, the graph, live updates, the join step. |
