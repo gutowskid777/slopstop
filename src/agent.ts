@@ -152,7 +152,11 @@ export async function startAgent(opts: {
       }
     }
   })();
-  loop.catch(quiet("message stream ended"));
+  // The SDK reconnects a dropped stream on its own. If the stream ever truly ends, say so: main.ts starts a fresh one.
+  const done = loop.then(
+    () => console.error(`${stamp()} message stream ended`),
+    (err) => quiet("message stream ended")(err),
+  );
 
-  return { stop: () => app.stop(), name: app.config.name, direct };
+  return { stop: () => app.stop(), name: app.config.name, direct, done };
 }

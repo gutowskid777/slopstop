@@ -52,12 +52,24 @@ if (!brainOnline()) console.log("no GEMINI_API_KEY: running the offline stub bra
 if (mapOnly || !photonOnline()) {
   if (!mapOnly) console.log("no Photon keys in .env: map only, the iMessage agent is off");
 } else {
-  agent = await startAgent({ store, mapUrl, changed: web.broadcast, offline });
-  console.log(`agent up on Photon project "${agent.name}", waiting for texts`);
+  let stopping = false;
   const stop = async () => {
+    stopping = true;
     await agent?.stop();
     process.exit(0);
   };
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
+  // Keep a line open for as long as this process lives. Venue wifi drops; a dead stream gets a fresh connection.
+  for (let restarts = 0; !stopping; restarts++) {
+    try {
+      agent = await startAgent({ store, mapUrl, changed: web.broadcast, offline });
+      console.log(`agent up on Photon project "${agent.name}", waiting for texts${restarts ? ` (reconnect ${restarts})` : ""}`);
+      await agent.done;
+      await agent.stop().catch(() => {});
+    } catch (err) {
+      console.error(`agent could not connect: ${String((err as Error)?.message ?? err).slice(0, 200)}`);
+    }
+    if (!stopping) await new Promise((r) => setTimeout(r, Math.min(30_000, 2_000 * (restarts + 1))));
+  }
 }
