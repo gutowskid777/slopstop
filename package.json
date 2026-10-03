@@ -8,7 +8,8 @@
     "try": "tsx src/try.ts",
     "seed": "tsx src/seed.ts",
     "doctor": "tsx src/doctor.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts"
   },
   "license": "ISC",
   "dependencies": {

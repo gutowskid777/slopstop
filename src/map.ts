@@ -1,5 +1,5 @@
 // What the public map is allowed to know: titles, branches and scores. Never who, never the raw text.
-import { CLOSE, similarity } from "./match.js";
+import { close } from "./match.js";
 import type { Idea, Store } from "./store.js";
 
 export type MapIdea = { id: string; title: string; score: number; problem: number; fix: number; at: string; sample: boolean; near: number };
@@ -30,4 +30,4 @@ export function mapPayload(store: Store) {
 
 /** How many other builders sit close to this idea. */
 const neighbors = (idea: Idea, real: Idea[]) =>
-  new Set(real.filter((o) => o.owner !== idea.owner && similarity(idea, o) >= CLOSE).map((o) => o.owner)).size;
+  new Set(real.filter((o) => o.owner !== idea.owner && close(idea, o)).map((o) => o.owner)).size;

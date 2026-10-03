@@ -29,7 +29,7 @@ Bearing tries to pass its own test: there is no app, no signup and nothing to le
 3. **A connection.** If another builder is close to your idea, it offers an intro. They only hear about it after
    you say yes, and numbers are only swapped when both of you say yes. Then each side gets a contact card.
 
-Also: `mine`, `private`, `public`, `why`, `map`, `stop`. Start a text with `private:` to keep an idea off the map.
+Also: `mine`, `private`, `public`, `why`, `map`, `stop`, `forget me`. Start a text with `private:` to keep an idea off the map.
 A photo of a whiteboard works as an idea. A thumbs-up on the intro question counts as a yes.
 
 ## The map

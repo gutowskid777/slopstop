@@ -72,6 +72,8 @@ export interface Store {
   saveIntro(x: Intro): void;
   introBetween(a: string, b: string): Intro | undefined;
   intros(): Intro[];
+  /** Wipe one person: their ideas, their record, and any intro they were part of. */
+  forget(id: string): void;
 }
 
 type Db = { users: Record<string, User>; ideas: Idea[]; intros: Intro[] };
@@ -146,6 +148,15 @@ export class JsonStore implements Store {
   }
   intros() {
     return this.db.intros;
+  }
+  forget(id: string) {
+    const gone = new Set(this.db.intros.filter((x) => x.a === id || x.b === id).map((x) => x.id));
+    this.db.ideas = this.db.ideas.filter((i) => i.owner !== id);
+    this.db.intros = this.db.intros.filter((x) => !gone.has(x.id));
+    delete this.db.users[id];
+    // Nobody else should be left holding a question about an intro that no longer exists.
+    for (const u of Object.values(this.db.users)) u.pending = u.pending.filter((p) => p.kind !== "intro" || !gone.has(p.introId));
+    this.flush();
   }
   /** Seeder only: drop ideas matching the test. With everything = true, forget people and intros too. */
   drop(test: (i: Idea) => boolean, everything = false) {

@@ -33,7 +33,8 @@ h1 { font-weight: 900; font-size: clamp(40px, min(4.3vw, 8.4vh), 60px); line-hei
 .join button { height: 54px; padding: 0 20px; font-weight: 900; font-size: 19px; background: var(--blaze); color: #fff; border: 2px solid var(--ink); border-radius: 6px; cursor: pointer; white-space: nowrap; }
 .join button:hover { background: #d94300; }
 .join button:disabled { opacity: 0.6; cursor: progress; }
-.join-note { font-size: 15px; color: var(--soft); margin-top: 8px; min-height: 1.3em; }
+.join-note { font-size: 15px; color: var(--soft); margin-top: 8px; }
+.join-note:empty { display: none; }
 .join-note.bad { color: #a3210b; font-weight: 600; }
 .join-done { display: flex; gap: 16px; align-items: center; margin-top: 6px; }
 .join-done[hidden] { display: none; }
@@ -51,17 +52,17 @@ h1 { font-weight: 900; font-size: clamp(40px, min(4.3vw, 8.4vh), 60px); line-hei
 .thread .it { align-self: flex-start; background: #e4e6e0; border-bottom-left-radius: 6px; font-weight: 600; }
 
 /* The sign: one idea, read like a trail marker. */
-.sign { position: relative; border: 2px solid var(--ink); border-radius: 8px; background: #fff; padding: 16px 18px 16px; margin-top: 2px; }
+.sign { position: relative; border: 2px solid var(--ink); border-radius: 8px; background: #fff; padding: 14px 18px; }
 .sign[hidden] { display: none; }
 .sign-close { display: none; }
 .sign-when { font-size: 14px; font-weight: 800; color: var(--blaze); }
-.sign-score { font-weight: 900; font-size: clamp(64px, 11vh, 92px); line-height: 0.9; letter-spacing: -0.05em; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.sign-score { font-weight: 900; font-size: clamp(60px, 10vh, 92px); line-height: 0.9; letter-spacing: -0.05em; margin-top: 4px; font-variant-numeric: tabular-nums; }
 .sign-score small { font-size: 26px; font-weight: 800; letter-spacing: 0; color: var(--soft); margin-left: 4px; }
-.sign h2 { font-weight: 800; font-size: 23px; line-height: 1.12; letter-spacing: -0.015em; margin-top: 10px; }
-.sign-inputs { display: flex; gap: 26px; margin-top: 12px; }
+.sign h2 { font-weight: 800; font-size: 22px; line-height: 1.12; letter-spacing: -0.015em; margin-top: 8px; }
+.sign-inputs { display: flex; gap: 26px; margin-top: 10px; }
 .sign-inputs dt { font-size: 14px; color: var(--soft); font-weight: 600; }
 .sign-inputs dd { font-weight: 900; font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; }
-.sign-call { font-weight: 800; font-size: 17px; margin-top: 12px; }
+.sign-call { font-weight: 800; font-size: 17px; margin-top: 8px; }
 .sign-where { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--soft); margin-top: 6px; font-weight: 600; }
 .blaze { width: 9px; height: 14px; border-radius: 2px; background: var(--ink); flex: none; }
 .sign-near { font-size: 15px; font-weight: 800; margin-top: 6px; }

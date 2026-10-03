@@ -2,7 +2,7 @@
 // npm run try -- "my idea"             (as "you")
 // FROM=alex npm run try -- "yes alex"  (as someone else, to play out an intro)
 // If `npm start` is running, this plays inside it: the map updates live, and anyone in the conversation
-// with a real number gets a real iMessage.
+// with a real number gets a real iMessage. DIRECT=1 skips the running process and uses the file store.
 import "dotenv/config";
 import { handle, type Out } from "./core.js";
 import { JsonStore } from "./store.js";
@@ -24,11 +24,13 @@ const print = (to: string, out: Out[]) => {
   for (const o of out) console.log(show(o) + "\n");
 };
 
-const live = await fetch(`http://localhost:${process.env.PORT ?? 1290}/api/dev/text`, {
-  method: "POST",
-  headers: { "content-type": "application/json" },
-  body: JSON.stringify({ from: sender, text }),
-}).catch(() => undefined);
+const live = process.env.DIRECT
+  ? undefined
+  : await fetch(`http://localhost:${process.env.PORT ?? 1290}/api/dev/text`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ from: sender, text }),
+    }).catch(() => undefined);
 
 if (live?.ok) {
   const { lines } = (await live.json()) as { lines: { to: string; out: Out[] }[] };

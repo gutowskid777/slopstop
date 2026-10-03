@@ -3,6 +3,7 @@
 // npm run seed             refresh the samples, keep everything real
 // npm run seed -- --none   remove the samples
 // npm run seed -- --reset  wipe everything (people, ideas, intros), then add the samples
+// npm run seed -- --forget alex   wipe one person (a test builder), touch nothing else
 import { score } from "./score.js";
 import { JsonStore, newId, type Idea } from "./store.js";
 
@@ -31,6 +32,12 @@ const rows: [string, string, string, number, number][] = [
 ];
 
 const store = new JsonStore();
+const who = process.argv.indexOf("--forget");
+if (who > -1) {
+  for (const id of process.argv.slice(who + 1)) store.forget(id);
+  console.log(`forgot ${process.argv.slice(who + 1).join(", ")}`);
+  process.exit(0);
+}
 const reset = process.argv.includes("--reset");
 store.drop((i) => reset || Boolean(i.sample), reset);
 if (process.argv.includes("--none")) {

@@ -28,7 +28,7 @@ const t = (text: string, effect?: "slam" | "confetti"): Out => ({ type: "text", 
 // Every word the agent can say that the model didn't write. Tone: a sharp friend texting. Lowercase, short, no filler.
 const copy = {
   pitch: "text me an idea or what you're building. i score it out of 100 and connect you w/ the builders closest to it.",
-  how: "score = 10 x problem - 5 x fix, both rated 0-10. the problem has to hurt about 2x what the fix costs to adopt.\nalso: mine, private, public, map, stop.",
+  how: "score = 10 x problem - 5 x fix, both rated 0-10. the problem has to hurt about 2x what the fix costs to adopt.\nalso: mine, private, public, map, stop, forget me.",
   call: { build: "build it.", sharpen: "sharpen it.", drop: "drop it or flip it." },
   told: 'fyi the title is on the map, no name attached. "private" pulls it.',
   alone: "nobody's near this yet. you'll hear from me when a builder wants in.",
@@ -38,6 +38,7 @@ const copy = {
   public: "back on the map.",
   noIdea: "no idea to change yet. text me one.",
   muted: 'done. no more intros or pings from me. text "start" to undo.',
+  forgotten: "done. your ideas, your number and your intros are wiped on my side.",
   unmuted: "you're back in.",
   busy: "that's a lot for one hour. pick your best one and text it tmrw.",
   down: "my brain's down for a sec. text that again in a min.",
@@ -87,6 +88,11 @@ export async function handle(sender: string, raw: string, d: Deps, image?: Brain
     store.saveUser({ ...user, muted: true, pending: [] });
     return say(t(copy.muted));
   }
+  if (/^(forget me|delete me|delete my (data|ideas|stuff))$/.test(lower)) {
+    store.forget(sender);
+    d.changed?.();
+    return say(t(copy.forgotten));
+  }
   if (lower === "start" && user.muted) {
     store.saveUser({ ...user, muted: false });
     return say(t(copy.unmuted));
@@ -111,7 +117,13 @@ export async function handle(sender: string, raw: string, d: Deps, image?: Brain
   if (/^(map|the map|show me the map)$/.test(lower)) {
     return say(t(d.mapUrl && !/localhost|127\.0\.0\.1/.test(d.mapUrl) ? d.mapUrl : copy.noMap));
   }
-  if (/^(why|how|how does this work|how is it scored|score|help|\?|commands)$/.test(lower)) return say(t(copy.how));
+  // "why", "help", "how do you score it", "how does the score work": the math, in one text.
+  if (
+    /^(why|how|help|\?|commands|score|how (does|do) (this|it|you) work)$/.test(lower) ||
+    (/^(how|why|what)\b.*\b(scor\w*|rated|rating|math)\b/.test(lower) && lower.split(/\s+/).length <= 9)
+  ) {
+    return say(t(copy.how));
+  }
 
   const vis = lower.match(/^(?:make it |keep it |go )?(public|private)(?:\s+#?(\d+))?$/);
   if (vis) {
@@ -172,7 +184,8 @@ export async function handle(sender: string, raw: string, d: Deps, image?: Brain
     verdict: r.verdict,
     move: r.move,
     private: PRIVATE.test(text),
-    vec: await (d.embed ?? embedBrain)(`${r.title}. ${r.gist}`),
+    // Matching reads the gist: who it is for and the problem, not the form factor.
+    vec: await (d.embed ?? embedBrain)(r.gist || r.title),
     created: new Date().toISOString(),
   };
   store.addIdea(idea);
@@ -212,7 +225,7 @@ async function addContext(user: User, idea: Idea, r: Read, d: Deps) {
   Object.assign(idea, { problem: r.problem, fix: r.fix, score: s, verdict: r.verdict, move: r.move });
   if (r.gist && r.gist !== idea.gist) {
     idea.gist = r.gist;
-    idea.vec = (await (d.embed ?? embedBrain)(`${idea.title}. ${r.gist}`)) ?? idea.vec;
+    idea.vec = (await (d.embed ?? embedBrain)(r.gist)) ?? idea.vec;
   }
   store.saveIdea(idea);
   user.pending = user.pending.filter((p) => p.kind !== "ask");
