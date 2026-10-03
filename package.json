@@ -1,0 +1,25 @@
+{
+  "name": "brh-ideas",
+  "version": "1.0.0",
+  "description": "Text an idea. Get a verdict. See the map.",
+  "scripts": {
+    "agent": "tsx src/agent.ts",
+    "map": "tsx src/map-server.ts",
+    "try": "tsx src/try.ts",
+    "seed": "tsx src/seed.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@google/genai": "^2.27.0",
+    "dotenv": "^18.0.5",
+    "spectrum-ts": "^12.10.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3"
+  },
+  "type": "module",
+  "private": true
+}
