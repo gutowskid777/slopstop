@@ -246,7 +246,7 @@ const run = (file: string, args: string[], ms: number) =>
 /** Print the deck to a PDF. Cached per idea and score, so asking twice never prints twice. Returns the file path. */
 export async function renderDeck(idea: Idea, c: DeckCopy, picture?: string): Promise<string> {
   mkdirSync(DIR, { recursive: true });
-  const pdf = join(DIR, `${idea.id}-${idea.score}.pdf`);
+  const pdf = join(DIR, `${idea.id}-${idea.score}-v2.pdf`);
   if (existsSync(pdf)) return pdf;
   const work = mkdtempSync(join(tmpdir(), "slopstop-deck-"));
   try {
@@ -265,7 +265,7 @@ export async function renderDeck(idea: Idea, c: DeckCopy, picture?: string): Pro
 
 /** The whole thing: words, then the picture, then the PDF. */
 export async function makeDeck(idea: Idea, facts: string[]): Promise<string> {
-  const cached = join(DIR, `${idea.id}-${idea.score}.pdf`);
+  const cached = join(DIR, `${idea.id}-${idea.score}-v2.pdf`);
   if (existsSync(cached)) return cached;
   const copy = await writeCopy(idea, facts);
   // The picture is a bonus: if it fails, is over the daily cap or takes too long, the deck ships without it.
