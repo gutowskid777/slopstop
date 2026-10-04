@@ -34,24 +34,82 @@
   };
   const sway = (key, amount) => ((hash(key) % 2000) / 1000 - 1) * amount;
 
-  // The night sky behind the tree: stars drawn once.
-  function sky() {
-    const c = $("sky"), d = Math.min(2, devicePixelRatio || 1);
-    c.width = innerWidth * d;
-    c.height = innerHeight * d;
-    const g = c.getContext("2d");
+  // The night sky behind the tree: three depths of stars that breathe, a few bright ones with a glow,
+  // and now and then one that falls.
+  const skyStars = [];
+  let skyW = 0, skyH = 0, skyD = 1, falling = null, lastSky = 0;
+  function seedSky() {
+    const c = $("sky");
+    skyD = Math.min(2, devicePixelRatio || 1);
+    skyW = c.width = innerWidth * skyD;
+    skyH = c.height = innerHeight * skyD;
     let seed = 11;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
-    for (let i = 0; i < 320; i++) {
-      g.globalAlpha = 0.2 + rnd() * 0.7;
-      g.fillStyle = rnd() < 0.3 ? "#bcd0ff" : "#ffffff";
-      g.beginPath();
-      g.arc(rnd() * c.width, rnd() * c.height * 0.92, (rnd() < 0.07 ? 1.5 : 0.4 + rnd() * 0.7) * d, 0, 7);
-      g.fill();
+    skyStars.length = 0;
+    const count = Math.round(Math.min(1100, (innerWidth * innerHeight) / 1500));
+    for (let i = 0; i < count; i++) {
+      const depth = rnd(); // 0 far and faint, 1 near and bright
+      skyStars.push({
+        x: rnd() * skyW, y: rnd() * skyH,
+        r: (depth > 0.985 ? 1.9 : depth > 0.9 ? 1.2 : 0.35 + depth * 0.6) * skyD,
+        a: 0.18 + depth * 0.72, speed: 0.4 + rnd() * 1.6, phase: rnd() * 6.28, glow: depth > 0.985,
+        tint: rnd() < 0.22 ? "#a9c4ff" : rnd() < 0.1 ? "#ffe2b0" : "#ffffff",
+      });
     }
   }
-  sky();
-  addEventListener("resize", sky);
+  function drawSky(now) {
+    const g = $("sky").getContext("2d"), t = now / 1000;
+    g.clearRect(0, 0, skyW, skyH);
+    for (const st of skyStars) {
+      const twinkle = still ? 1 : 0.62 + 0.38 * Math.sin(t * st.speed + st.phase);
+      g.globalAlpha = st.a * twinkle;
+      g.fillStyle = st.tint;
+      if (st.glow) {
+        const halo = g.createRadialGradient(st.x, st.y, 0, st.x, st.y, st.r * 7);
+        halo.addColorStop(0, st.tint);
+        halo.addColorStop(0.18, "rgba(170, 196, 255, 0.35)");
+        halo.addColorStop(1, "rgba(170, 196, 255, 0)");
+        g.fillStyle = halo;
+        g.fillRect(st.x - st.r * 7, st.y - st.r * 7, st.r * 14, st.r * 14);
+        g.fillStyle = "#ffffff";
+        g.fillRect(st.x - st.r * 5, st.y - 0.35 * skyD, st.r * 10, 0.7 * skyD); // a thin glint across
+        g.fillRect(st.x - 0.35 * skyD, st.y - st.r * 5, 0.7 * skyD, st.r * 10);
+      }
+      g.beginPath();
+      g.arc(st.x, st.y, st.r, 0, 6.3);
+      g.fill();
+    }
+    if (falling) {
+      const k = (now - falling.t0) / falling.ms;
+      if (k >= 1) falling = null;
+      else {
+        const x = falling.x + falling.dx * k, y = falling.y + falling.dy * k, tail = 0.16;
+        const trail = g.createLinearGradient(x, y, x - falling.dx * tail, y - falling.dy * tail);
+        trail.addColorStop(0, `rgba(255,255,255,${0.9 * Math.sin(k * Math.PI)})`);
+        trail.addColorStop(1, "rgba(255,255,255,0)");
+        g.globalAlpha = 1;
+        g.strokeStyle = trail;
+        g.lineWidth = 1.6 * skyD;
+        g.beginPath();
+        g.moveTo(x, y);
+        g.lineTo(x - falling.dx * tail, y - falling.dy * tail);
+        g.stroke();
+      }
+    }
+    g.globalAlpha = 1;
+  }
+  function tickSky(now) {
+    if (now - lastSky > 40) {
+      lastSky = now;
+      if (!falling && Math.random() < 0.004) falling = { t0: now, ms: 900 + Math.random() * 500, x: Math.random() * skyW * 0.8, y: Math.random() * skyH * 0.35, dx: (0.25 + Math.random() * 0.2) * skyW, dy: (0.12 + Math.random() * 0.12) * skyH };
+      drawSky(now);
+    }
+    requestAnimationFrame(tickSky);
+  }
+  seedSky();
+  drawSky(0);
+  if (!still) requestAnimationFrame(tickSky);
+  addEventListener("resize", () => (seedSky(), drawSky(performance.now())));
 
   let data = null;
   let known = null; // ids already seen, so only a real arrival moves the tree

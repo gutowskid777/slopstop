@@ -23,7 +23,7 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; }
-body { background: radial-gradient(85% 75% at 62% 40%, #12224a 0%, #0a1230 40%, #060a18 74%, #03050d 100%) fixed var(--sky); color: var(--ink); font-family: var(--font); -webkit-font-smoothing: antialiased; }
+body { background: radial-gradient(40% 32% at 24% 26%, rgba(64, 196, 160, 0.13) 0%, rgba(64, 196, 160, 0) 62%) fixed, radial-gradient(44% 36% at 80% 68%, rgba(120, 110, 255, 0.14) 0%, rgba(120, 110, 255, 0) 64%) fixed, radial-gradient(85% 75% at 60% 40%, #13244f 0%, #0a1230 40%, #060a18 74%, #02040b 100%) fixed var(--sky); color: var(--ink); font-family: var(--font); -webkit-font-smoothing: antialiased; }
 button, input { font: inherit; color: inherit; }
 a { color: inherit; }
 :focus-visible { outline: 2.5px solid var(--ink); outline-offset: 2px; }
