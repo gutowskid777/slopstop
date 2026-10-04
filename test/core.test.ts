@@ -65,7 +65,7 @@ test("the one question is asked once, only when nobody is near, and its answer r
   assert.match(w.said("+15550001"), /1\. pitch it at appdev/);
   assert.deepEqual(w.store.user("+15550001").facts, ["cornell sophomore"]);
   await w.text("+15550001", "another idea entirely");
-  assert.equal(w.said("+15550001").match(/you in college\?/g)?.length, 1);
+  assert.equal(w.said("+15550001").match(/you have this problem yourself\?/g)?.length, 1);
 });
 
 test("an intro asks the new builder first, and swaps numbers only when both say yes", async () => {
