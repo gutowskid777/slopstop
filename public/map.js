@@ -97,12 +97,13 @@
     const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
     return Math.atan2(b.y - a.y, b.x - a.x);
   };
-  // A branch: a center line whose width narrows toward the tip, drawn as one closed shape.
-  function limb(pts, w0, w1) {
+  // A branch: a center line whose width narrows all the way to the tip, drawn as one closed shape.
+  // Where it joins the trunk it swells into a collar, the way real wood does.
+  function limb(pts, w0, w1, collar = 0) {
     const L = [], R = [];
     pts.forEach((p, i) => {
-      const a = heading(pts, i) + Math.PI / 2;
-      const w = (w1 + (w0 - w1) * Math.pow(1 - i / (pts.length - 1), 1.45)) / 2;
+      const t = i / (pts.length - 1), a = heading(pts, i) + Math.PI / 2;
+      const w = (w1 + (w0 - w1) * Math.pow(1 - t, 1.12) + w0 * collar * Math.pow(Math.max(0, 1 - t / 0.13), 2)) / 2;
       L.push(`${r1(p.x + Math.cos(a) * w)},${r1(p.y + Math.sin(a) * w)}`);
       R.push(`${r1(p.x - Math.cos(a) * w)},${r1(p.y - Math.sin(a) * w)}`);
     });
@@ -121,37 +122,44 @@
     if (!n) return view;
 
     const narrow = W < 640;
+    // On a phone, one branch's ideas all grow to the right of the stem, so every name gets a full line.
+    const oneSided = narrow && m.level === 2;
     const s = Math.max(0.52, Math.min(1.3, Math.min(W / 1150, H / 780)));
-    const top = narrow ? 74 : 78, baseY = H - (narrow ? 26 : 40), U = baseY - top, cx = W / 2;
-    const step = (U * 0.72) / n; // how far apart two neighbors leave the trunk
+    const top = narrow ? 76 : 86, baseY = H - (narrow ? 26 : 40), U = baseY - top;
+    const cx = oneSided ? 42 : W / 2;
+    const step = (U * 0.72) / n; // how far apart two neighbors end
+    const edge = narrow ? 16 : 22; // names keep this far from the side of the screen
     const labelW = m.level === 2 ? Math.max(108, Math.min(250, W * 0.21)) : Math.max(92, Math.min(190, W * 0.15));
-    const leafLen = m.level === 0 ? 15.5 * s : m.level === 1 ? Math.max(11 * s, Math.min(31 * s, step * 0.62)) : Math.max(20 * s, Math.min(48 * s, step * 1.05));
+    const leafLen = m.level === 0 ? 15.5 * s : m.level === 1 ? Math.max(14 * s, Math.min(40 * s, step * 0.8)) : Math.max(26 * s, Math.min(62 * s, step * 1.3));
     // How far the leaves reach past the end of a branch.
-    const bush = m.level === 0 ? Math.max(24 * s, Math.min(60 * s, step * 1.1)) : m.level === 1 ? leafLen * 1.25 : leafLen;
+    const bush = m.level === 0 ? Math.max(24 * s, Math.min(60 * s, step * 1.1)) : m.level === 1 ? leafLen * 1.1 : leafLen * 0.7;
+    const past = m.level === 0 ? bush * 1.2 : bush; // and how far the crown does
     // Zoomed in, a branch is drawn compact: shorter wood, names close by.
-    const rx = Math.max(54, Math.min(cx - labelW - bush - (narrow ? 12 : 26), [9999, 430, 290][m.level] * s));
-    const trunkW = [52, 36, 26][m.level] * s * (narrow ? 0.74 : 1);
+    const rx = oneSided ? 60 : Math.max(50, Math.min(W / 2 - labelW - past - (narrow ? 12 : 26), [9999, 430, 290][m.level] * s));
+    const trunkW = [54, 36, 26][m.level] * s * (narrow ? 0.74 : 1);
     const most = Math.max(...kids.map((k) => k.count));
-    view.style.setProperty("--fn", `${r1(m.level === 2 ? Math.max(13, Math.min(18, 17 * s + 1)) : Math.max(14, Math.min(23, 21 * s)))}px`);
+    view.style.setProperty("--fn", `${r1(m.level === 2 ? Math.max(15, Math.min(18, 17 * s + 1)) : Math.max(14, Math.min(23, 21 * s)))}px`);
     view.style.setProperty("--fc", `${r1(Math.max(12, Math.min(15, 14.5 * s)))}px`);
 
-    // Branches leave the trunk one after another, left then right, the way they do on a real tree.
-    const low = narrow ? 0.2 : 0.3; // how far up the first one ends
+    // Branches leave the trunk one after another, left then right, and climb: each one ends well above
+    // where it started, the way real limbs reach for light.
+    const low = oneSided ? 0.12 : narrow ? 0.26 : 0.4; // how far up the first one ends
     kids.forEach((k, i) => {
-      const t = (i + 0.5) / n, side = i % 2 ? 1 : -1;
-      const reach = rx * (1 - 0.74 * Math.pow(t, 1.9)) * (1 + sway(`${k.key}r`, 0.05));
-      const T = { x: cx + side * reach, y: baseY - U * (low + (0.97 - low) * t) + sway(`${k.key}y`, step * 0.16) };
-      k.geo = { side, T, ay: Math.min(baseY - U * 0.17, T.y + reach * 0.3 + U * 0.06) };
+      const t = (i + 0.5) / n, side = oneSided || i % 2 ? 1 : -1;
+      const reach = rx * (1 - (oneSided ? 0.2 : 0.74) * Math.pow(t, 1.9)) * (1 + sway(`${k.key}r`, 0.05));
+      const T = { x: cx + side * reach, y: baseY - U * (low + (0.97 - low) * t) + sway(`${k.key}y`, step * 0.14) };
+      k.geo = { side, T, ay: Math.min(baseY - U * 0.14, T.y + reach * 0.62 + U * 0.05) };
     });
     const trunkH = baseY - Math.min(...kids.map((k) => k.geo.ay));
-    const lean = (u) => Math.sin(u * Math.PI * 1.1) * 11 * s;
+    const lean = (u) => (Math.sin(u * Math.PI * 1.2) * 15 - u * 8) * s * (oneSided ? 0.4 : 1);
     const at = (y) => {
       const u = Math.max(0, Math.min(1, (baseY - y) / trunkH));
       return { x: cx + lean(u), w: trunkW * (1 - 0.66 * u) + trunkW * 0.7 * Math.pow(Math.max(0, 1 - u / 0.16), 2) };
     };
 
-    const crowns = svg("g"), lights = svg("g"), limbs = svg("g");
-    art.append(svg("ellipse", { class: "hill", cx, cy: r1(baseY + 48 * s), rx: r1(Math.min(W * 0.47, 380 * s + 90)), ry: r1(64 * s) }), crowns, lights);
+    const canopy = svg("g", { class: m.level ? "" : "canopy" }), crowns = svg("g"), lights = svg("g"), limbs = svg("g");
+    canopy.append(crowns, lights);
+    art.append(svg("ellipse", { class: "hill", cx: r1(W / 2), cy: r1(baseY + 48 * s), rx: r1(Math.min(W * 0.47, 380 * s + 90)), ry: r1(64 * s) }), canopy);
     const spine = Array.from({ length: 19 }, (_, i) => {
       const y = baseY + 12 - (i / 18) * (trunkH + 12);
       return { y, ...at(y) };
@@ -163,28 +171,37 @@
     );
     art.append(up, limbs);
 
-    const leaf = (g, x, y, a, len, idea) => {
+    const leaf = (g, x, y, a, size, idea) => {
       const band = call(idea.score)[2];
-      const cls = `lf ${band}${idea.sample ? "" : " real"}${idea.id === landing ? " landing" : ""}`;
+      const len = size;
+      const cls = `lf ${band}${idea.id === landing ? " landing" : ""}`;
       const mid = { x: x + Math.cos(a) * len * 0.55, y: y + Math.sin(a) * len * 0.55 };
+      // Zoomed in, each leaf sits in a little light of its own.
+      if (m.level) crowns.append(svg("circle", { class: "glow", cx: r1(mid.x), cy: r1(mid.y), r: r1(len * (m.level === 2 ? 0.56 : 0.5)) }));
       if (band === "build") {
         g.append(svg("path", { class: "stem", d: `M${r1(x)},${r1(y)}L${r1(mid.x)},${r1(mid.y)}` }), svg("circle", { class: cls, cx: r1(mid.x), cy: r1(mid.y), r: r1(len * 0.36) }));
       } else {
         g.append(svg("path", { class: `${cls} v${hash(idea.id) % 3}`, d: LEAF, transform: `translate(${r1(x)} ${r1(y)}) rotate(${r1((a * 180) / Math.PI)}) scale(${r1(len)})` }));
       }
-      if (m.level) {
-        const r = len * (m.level === 2 ? 0.92 : 0.8);
-        crowns.append(svg("circle", { class: "crown", cx: r1(mid.x), cy: r1(mid.y), r: r1(r) }));
-        lights.append(svg("circle", { class: "crown light", cx: r1(mid.x - r * 0.18), cy: r1(mid.y - r * 0.22), r: r1(r * 0.62) }));
+      // An idea that was really texted in carries a white blossom, so it is plainly not a sample.
+      if (!idea.sample) {
+        const R = Math.max(8 * s, len * 0.36), bloom = svg("g", { class: `bloom${idea.id === landing ? " landing" : ""}` });
+        for (let p = 0; p < 5; p++) {
+          const turn = -Math.PI / 2 + (p * Math.PI * 2) / 5;
+          bloom.append(svg("circle", { class: "petal", cx: r1(x + Math.cos(turn) * R * 0.54), cy: r1(y + Math.sin(turn) * R * 0.54), r: r1(R * 0.46) }));
+        }
+        bloom.append(svg("circle", { class: "heart", cx: r1(x), cy: r1(y), r: r1(R * 0.3) }));
+        g.append(bloom);
+        // The newest one keeps a slow ring, so it can be found at any zoom.
+        if (idea.id === data.latest) g.append(svg("circle", { class: "ping", cx: r1(x), cy: r1(y), r: r1(R * 1.15) }));
       }
-      // The newest idea that was texted in keeps a slow ring, so it can be found at any zoom.
-      if (idea.id === data.latest) g.append(svg("circle", { class: "ping", cx: r1(mid.x), cy: r1(mid.y), r: r1(Math.max(7, len * 0.5)) }));
       return mid;
     };
     // A twig with its leaves: one at the end, the rest stepping up it on alternate sides. The best idea gets the end.
-    const sprig = (g, x, y, a, len, ideas) => {
+    const sprig = (g, x, y, a, len, ideas, puffs) => {
       const end = { x: x + Math.cos(a) * len, y: y + Math.sin(a) * len };
       g.append(svg("path", { class: "twig", d: `M${r1(x)},${r1(y)}L${r1(end.x)},${r1(end.y)}`, "stroke-width": r1(Math.max(1.3, leafLen * 0.15)) }));
+      puffs.push([end, 0.66]); // crown wherever there are leaves, so no twig hangs out in the open
       const sorted = [...ideas].sort((p, q) => p.score - q.score);
       sorted.forEach((idea, j) => {
         if (j === sorted.length - 1) return leaf(g, end.x, end.y, a, leafLen, idea);
@@ -197,19 +214,20 @@
       const { side, T, ay } = k.geo;
       const root = at(ay), A = { x: root.x, y: ay };
       const dx = T.x - A.x, dy = T.y - A.y;
-      // Out from the trunk with a little sag, then up toward the light.
+      // Up and out of the trunk at a steep angle, then arching over toward its end.
       const pts = cubic(
         A,
-        { x: A.x + dx * 0.5, y: A.y + Math.abs(dx) * 0.03 + sway(`${k.key}a`, Math.abs(dx) * 0.05) },
-        { x: A.x + dx * 0.84 + sway(`${k.key}b`, Math.abs(dx) * 0.05), y: A.y + dy * 0.48 },
+        { x: A.x + dx * 0.22 + sway(`${k.key}a`, Math.abs(dx) * 0.04), y: A.y + dy * 0.5 },
+        { x: A.x + dx * 0.62, y: A.y + dy * 0.88 + sway(`${k.key}b`, Math.abs(dx) * 0.04) },
         T,
-        22,
+        24,
       );
       const last = pts.length - 1;
-      const w0 = m.level === 2 ? Math.max(3.5 * s, trunkW * 0.38) : Math.min(root.w * 0.8, Math.max(5 * s, trunkW * 0.36 * Math.sqrt(k.count / most) + 3 * s));
-      const g = svg("g", { class: "kid", "data-k": i });
-      g.append(svg("path", { class: "bark", d: limb(pts, w0, Math.max(1.8 * s, w0 * 0.16)) }));
+      const w0 = m.level === 2 ? Math.max(3.5 * s, trunkW * 0.34) : Math.min(root.w * 0.72, Math.max(5 * s, trunkW * 0.42 * Math.sqrt(k.count / most) + 3 * s));
+      const g = svg("g", { class: `kid${k.idea && k.idea.id === picked ? " on" : ""}`, "data-k": i });
+      g.append(svg("path", { class: "bark", d: limb(pts, w0, Math.max(1.5 * s, w0 * 0.1), 0.55) }));
       const dir = heading(pts, last);
+      const puffs = [];
       let spot = T; // where the name goes: just past the leaves
       if (m.level === 2) {
         spot = leaf(g, T.x, T.y, dir, leafLen, k.idea);
@@ -217,19 +235,19 @@
         const ideas = [...k.groups[0]].sort((p, q) => p.score - q.score);
         ideas.forEach((idea, j) => {
           const end = j === ideas.length - 1;
-          const idx = end ? last : Math.round((0.36 + (0.6 * (j + 0.5)) / ideas.length) * last);
+          const idx = end ? last : Math.round((0.34 + (0.62 * (j + 0.5)) / ideas.length) * last);
           const h = heading(pts, idx), a = end ? h : h + (j % 2 ? 1 : -1) * (1.05 + sway(idea.id, 0.2));
-          const stem = end ? 0 : leafLen * 0.42;
+          const stem = end ? 0 : leafLen * 0.34;
           const p = { x: pts[idx].x + Math.cos(a) * stem, y: pts[idx].y + Math.sin(a) * stem };
-          if (stem) g.append(svg("path", { class: "twig", d: `M${r1(pts[idx].x)},${r1(pts[idx].y)}L${r1(p.x)},${r1(p.y)}`, "stroke-width": r1(Math.max(1.3, leafLen * 0.09)) }));
-          leaf(g, p.x, p.y, a, leafLen * (end ? 1 : 0.92), idea);
+          if (stem) g.append(svg("path", { class: "twig", d: `M${r1(pts[idx].x)},${r1(pts[idx].y)}L${r1(p.x)},${r1(p.y)}`, "stroke-width": r1(Math.max(1.3, leafLen * 0.08)) }));
+          leaf(g, p.x, p.y, a, leafLen * (end ? 1 : 0.9), idea);
         });
       } else {
         // A big branch forks once, part way out, the way real wood does. The fork reaches for the light,
         // and the twigs take turns between the two arms.
-        const at0 = Math.round(0.44 * last), from = pts[at0], h0 = heading(pts, at0);
-        const reachF = Math.hypot(T.x - from.x, T.y - from.y) * (0.5 + sway(`${k.key}f`, 0.08));
-        const aim = h0 - side * (0.62 + sway(`${k.key}g`, 0.12));
+        const at0 = Math.round(0.46 * last), from = pts[at0], h0 = heading(pts, at0);
+        const reachF = Math.hypot(T.x - from.x, T.y - from.y) * (0.52 + sway(`${k.key}f`, 0.08));
+        const aim = h0 - side * (0.5 + sway(`${k.key}g`, 0.12));
         const tipF = { x: from.x + Math.cos(aim) * reachF, y: from.y + Math.sin(aim) * reachF };
         const arm = cubic(
           from,
@@ -239,42 +257,39 @@
           12,
         );
         const fork = k.groups.length > 3;
-        if (fork) g.append(svg("path", { class: "bark", d: limb(arm, w0 * 0.5, Math.max(1.6 * s, w0 * 0.12)) }));
+        const wAt = Math.max(1.5 * s, w0 * 0.1) + (w0 - Math.max(1.5 * s, w0 * 0.1)) * Math.pow(1 - 0.46, 1.12);
+        if (fork) g.append(svg("path", { class: "bark", d: limb(arm, wAt * 0.8, Math.max(1.4 * s, w0 * 0.08)) }));
         const mine = fork ? k.groups.filter((_, gi) => gi % 2 === 0 || gi === k.groups.length - 1) : k.groups;
         const theirs = fork ? k.groups.filter((_, gi) => gi % 2 === 1 && gi !== k.groups.length - 1) : [];
         const dress = (line, groups, start, tag) =>
           groups.forEach((ideas, gi) => {
-            const end = gi === groups.length - 1, top = line.length - 1;
-            const idx = end ? top : Math.round((start + ((1 - start) * (gi + 0.5)) / groups.length) * top);
+            const end = gi === groups.length - 1, upto = line.length - 1;
+            const idx = end ? upto : Math.round((start + ((1 - start) * (gi + 0.5)) / groups.length) * upto);
             const h = heading(line, idx);
-            sprig(g, line[idx].x, line[idx].y, end ? h : h + (gi % 2 ? 1 : -1) * (0.75 + sway(`${k.key}${tag}${gi}`, 0.22)), bush * (0.4 + 0.085 * Math.sqrt(ideas.length)), ideas);
+            sprig(g, line[idx].x, line[idx].y, end ? h : h + (gi % 2 ? 1 : -1) * (0.75 + sway(`${k.key}${tag}${gi}`, 0.22)), bush * (0.4 + 0.085 * Math.sqrt(ideas.length)), ideas, puffs);
           });
-        dress(pts, mine, fork ? 0.56 : 0.34, "m");
+        dress(pts, mine, fork ? 0.58 : 0.4, "m");
         dress(arm, theirs, 0.3, "f");
-        if (fork) k.geo.fork = tipF;
+        puffs.push([pts[Math.round(0.5 * last)], 0.85], [pts[Math.round(0.75 * last)], 1.1], [pts[last], 1.2]);
+        if (fork) puffs.push([tipF, 1.1]);
+        // The crown: one soft mass per branch, lighter where it faces up.
+        const middle = puffs.reduce((sum, [p]) => sum + p.y, 0) / puffs.length;
+        for (const [p, size] of puffs) (p.y < middle ? lights : crowns).append(svg("circle", { class: `crown ${p.y < middle ? "hi" : "lo"}`, cx: r1(p.x), cy: r1(p.y), r: r1(bush * size) }));
       }
-      if (m.level === 0) {
-        const puffs = [[pts[Math.round(0.42 * last)], 0.78], [pts[Math.round(0.72 * last)], 1.02], [pts[last], 1.12]];
-        if (k.geo.fork) puffs.push([k.geo.fork, 1.0]);
-        for (const [p, size] of puffs) {
-          const r = bush * size;
-          crowns.append(svg("circle", { class: "crown", cx: r1(p.x), cy: r1(p.y), r: r1(r) }));
-          lights.append(svg("circle", { class: "crown light", cx: r1(p.x - r * 0.18), cy: r1(p.y - r * 0.22), r: r1(r * 0.62) }));
-        }
-      }
-      g.append(svg("circle", { class: "hit", cx: r1(T.x), cy: r1(T.y), r: r1(bush + 12) }));
+      g.append(svg("circle", { class: "hit", cx: r1(T.x), cy: r1(T.y), r: r1(past + 10) }));
       limbs.append(g);
       view.tips.set(k.key, T);
 
       const tag = node("button", `tag ${side < 0 ? "l" : "r"}`);
       tag.type = "button";
       tag.dataset.k = i;
-      // The name sits just past the leaves. For one idea, that is just past its own patch of crown.
-      const off = m.level === 2 ? leafLen * 0.92 + (narrow ? 5 : 9) : bush + (narrow ? 5 : 12);
+      // The name sits just past the leaves, and never closer to the side of the screen than the gutter.
+      const off = m.level === 2 ? leafLen * 0.6 + (narrow ? 7 : 10) : past + (narrow ? 4 : 10);
+      const room = side < 0 ? spot.x - off - edge : W - (spot.x + off) - edge;
       tag.style.top = `${r1(m.level === 2 ? spot.y : T.y - 4)}px`;
       if (side < 0) tag.style.right = `${r1(W - (spot.x - off))}px`;
       else tag.style.left = `${r1(spot.x + off)}px`;
-      tag.style.maxWidth = `${r1(labelW)}px`;
+      tag.style.maxWidth = `${r1(Math.max(64, Math.min(oneSided ? 999 : labelW, room)))}px`;
       if (m.level === 2) {
         const { idea } = k;
         tag.classList.add(call(idea.score)[2], idea.sample ? "sample" : "real");
@@ -417,7 +432,7 @@
   }
   function pick(id) {
     picked = id;
-    for (const e of current?.querySelectorAll(".tag[data-i]") ?? []) e.classList.toggle("on", e.dataset.i === id);
+    for (const e of current?.querySelectorAll("[data-k]") ?? []) e.classList.toggle("on", shown.kids[e.dataset.k]?.idea?.id === id && id != null);
     sign();
   }
 
@@ -441,6 +456,7 @@
     const { home } = find(hit.id);
     if (home.join("/") === path.join("/")) pick(hit.id);
     else go(home);
+    if (matchMedia("(max-width: 900px)").matches) $("stage").scrollIntoView({ block: "start", behavior: "smooth" });
   });
 
   function apply(next) {

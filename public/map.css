@@ -1,14 +1,15 @@
-/* Bearing. One tree on pale paper: taupe bark, sage leaves, gold fruit. A fruit is an idea worth building. */
+/* Bearing. One tree on pale paper: warm bark, a green crown, gold fruit. A fruit is an idea worth building. */
 :root {
   --sky: #f6f8f1;
-  --hill: #e2ebd7;
-  --crown: #dbe7d0;
-  --crown-light: #e5eedb; /* the soft mass behind each cluster of leaves */
-  --bark: #7b6555;
-  --leaf-a: #a3c39d;
-  --leaf-b: #84b28b;
-  --leaf-c: #649f77;
-  --dry: #dccdb4; /* a leaf about to drop */
+  --hill: #d9e6c9;
+  --crown-lo: #c4d9b1; /* the crown: one soft mass per branch, */
+  --crown-hi: #d6e5c6; /* lighter where it faces up, */
+  --crown-shade: #a7c592; /* darker underneath */
+  --bark: #8a684c;
+  --leaf-a: #80b287;
+  --leaf-b: #62a074;
+  --leaf-c: #4a8a62;
+  --dry: #ead9b4; /* a leaf about to drop */
   --fruit: #f2b53b;
   --fruit-edge: #d9981c;
   --ink: #22332a;
@@ -62,7 +63,8 @@ a { color: inherit; }
 .key .k-build svg { fill: var(--fruit); stroke: var(--fruit-edge); stroke-width: 1.2; }
 .key .k-sharp svg { fill: var(--leaf-b); }
 .key .k-drop svg { fill: var(--dry); }
-.key .k-real svg { fill: var(--leaf-b); stroke: var(--ink); stroke-width: 2; }
+.key .k-real svg { fill: #fff; stroke: #9fb894; stroke-width: 1; }
+.key .k-real svg .heart { fill: var(--fruit); stroke: var(--fruit-edge); }
 .key .k-how { margin-top: 2px; }
 .key .k-how a { color: var(--ink); font-weight: 700; }
 
@@ -110,8 +112,10 @@ a { color: inherit; }
 .view svg { position: absolute; left: 0; top: 0; overflow: visible; }
 
 .hill { fill: var(--hill); }
-.crown { fill: var(--crown); }
-.crown.light { fill: var(--crown-light); }
+.crown.lo { fill: var(--crown-lo); }
+.crown.hi { fill: var(--crown-hi); }
+.canopy { filter: drop-shadow(0 7px 0 var(--crown-shade)); }
+.glow { fill: var(--crown-hi); opacity: 0.7; }
 .bark { fill: var(--bark); }
 .twig, .stem { fill: none; stroke: var(--bark); stroke-linecap: round; }
 .stem { stroke-width: 1.3; }
@@ -120,7 +124,9 @@ a { color: inherit; }
 .lf.sharp.v2 { fill: var(--leaf-c); }
 .lf.drop { fill: var(--dry); }
 .lf.build { fill: var(--fruit); stroke: var(--fruit-edge); stroke-width: 1; }
-.lf.real { stroke: var(--ink); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.petal { fill: #fff; stroke: #9fb894; stroke-width: 1; }
+.heart { fill: var(--fruit); stroke: var(--fruit-edge); stroke-width: 1; }
+.kid.on .lf { stroke: var(--ink); stroke-width: 2.6; vector-effect: non-scaling-stroke; }
 .ping { fill: none; stroke: var(--ink); stroke-width: 2; transform-box: fill-box; transform-origin: center; animation: ping 2.2s ease-out infinite; }
 @keyframes ping { from { transform: scale(0.5); opacity: 0.9; } to { transform: scale(2.2); opacity: 0; } }
 
@@ -129,8 +135,8 @@ a { color: inherit; }
 .kid .hit { fill: transparent; }
 .view.l2 .kid { cursor: pointer; }
 .up { cursor: zoom-out; }
-.view.hot .kid:not(.hot) { opacity: 0.45; }
-.view.hot .tag:not(.hot) { opacity: 0.4; }
+.view.hot .kid:not(.hot) { opacity: 0.62; }
+.view.hot .tag:not(.hot) { opacity: 0.6; }
 
 .tag { position: absolute; transform: translateY(-50%); display: grid; gap: 1px; padding: 0; border: 0; background: none; text-align: left; line-height: 1.1; cursor: zoom-in; transition: opacity 0.18s; }
 .tag.l { text-align: right; justify-items: end; }
@@ -150,14 +156,14 @@ a { color: inherit; }
 .tag.real .ttl { font-weight: 800; }
 .tag.on .ttl { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
 .tag.landing { animation: land 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) backwards 0.5s; }
-.lf.landing { transform-box: fill-box; transform-origin: center; animation: grow 0.8s cubic-bezier(0.2, 1.4, 0.4, 1) backwards 0.5s; }
+.lf.landing, .bloom.landing { animation: fade 0.9s ease backwards 0.5s; }
 @keyframes land { from { opacity: 0; transform: translateY(-50%) scale(0.6); } }
-@keyframes grow { from { opacity: 0; scale: 0.2; } }
+@keyframes fade { from { opacity: 0; } }
 
 /* ---- short windows: the example gives way first */
-@media (min-width: 901px) and (max-height: 860px) { .thread .it:nth-of-type(n + 4) { display: none; } }
-@media (min-width: 901px) and (max-height: 800px) { .lede { font-size: 15.5px; } .hub h1 { font-size: 44px; } .panel { gap: 14px; } }
-@media (min-width: 901px) and (max-height: 730px) { .thread { display: none; } }
+@media (min-width: 901px) and (max-height: 820px) { .lede { font-size: 15.5px; margin: 10px 0 14px; } .hub h1 { font-size: 44px; } .panel { gap: 13px; padding-top: 22px; } .key { gap: 5px; padding-top: 12px; } }
+@media (min-width: 901px) and (max-height: 760px) { .thread .it:nth-of-type(n + 4) { display: none; } }
+@media (min-width: 901px) and (max-height: 700px) { .thread { display: none; } }
 
 /* ---- smaller laptops: a narrower side */
 @media (min-width: 901px) and (max-width: 1280px) {
@@ -179,9 +185,8 @@ a { color: inherit; }
   .crumbs { font-size: 15px; }
   .crumbs .now { font-size: 21px; }
   .hint { margin-top: 3px; font-size: 14.5px; }
-  .key { order: 4; margin: 4px 18px 0; }
-  .below { order: 5; margin: 16px 18px 34px; }
-  .thread { display: none; }
+  .below { order: 4; margin: 10px 18px 0; }
+  .key { order: 5; margin: 20px 18px 34px; }
   .sign { position: fixed; z-index: 6; left: 12px; right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); max-width: 616px; margin: 0 auto; box-shadow: 0 14px 44px rgba(34, 51, 42, 0.22); }
   .join-done { align-items: flex-start; }
 }
