@@ -342,8 +342,8 @@
     const fresh = known && next.latest && !known.has(next.latest) ? next.latest : null;
     data = next;
     known = ids;
-    document.title = next.name;
-    $("name").textContent = next.name;
+    document.title = "SlopStop";
+    $("name").textContent = "SlopStop";
     $("tally").textContent = next.ideas ? `${next.ideas} texted in${next.connected ? `, ${next.connected} connected` : ""}` : "";
     $("key-sample").hidden = !next.trunks.some((t) => t.branches.some((b) => b.ideas.some((i) => i.sample)));
     if (picked && !ids.has(picked)) picked = null;

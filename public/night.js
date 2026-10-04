@@ -241,8 +241,8 @@
     const landed = known && next.latest && !known.has(next.latest) ? next.latest : null;
     data = next;
     known = ids;
-    document.title = next.name;
-    $("name").textContent = next.name;
+    document.title = "SlopStop";
+    $("name").textContent = "SlopStop";
     const branches = next.trunks.reduce((s, t) => s + t.branches.length, 0);
     $("tally").textContent = next.ideas ? `${next.ideas} texted in${next.connected ? `, ${next.connected} connected` : ""}` : "";
     $("tally").title = `${ids.size} ideas across ${branches} categories`;

@@ -478,8 +478,8 @@
     const first = !data;
     data = next;
     known = ids;
-    document.title = next.name;
-    $("name").textContent = next.name;
+    document.title = "SlopStop";
+    $("name").textContent = "SlopStop";
     $("tally").textContent = `${ids.size} ideas${next.connected ? `, ${next.connected} connected` : ""}`;
     if (picked && !ids.has(picked)) picked = null;
     if (fresh) {
