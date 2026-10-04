@@ -22,7 +22,7 @@
     return e;
   };
   const r = (n) => Math.round(n * 10) / 10;
-  const tall = () => matchMedia("(max-width: 1020px)").matches;
+  const tall = () => matchMedia("(max-width: 1259px)").matches;
   // ?static draws the finished map with no motion (screenshots, slow machines).
   const still = new URLSearchParams(location.search).has("static") || matchMedia("(prefers-reduced-motion: reduce)").matches;
 

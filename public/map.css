@@ -144,7 +144,7 @@ a { color: inherit; }
 @keyframes land { from { opacity: 0; transform: scale(0.6); } }
 
 /* ---- smaller laptops: a narrower card leaves the branches more room */
-@media (min-width: 1021px) and (max-width: 1380px) {
+@media (min-width: 1260px) and (max-width: 1380px) {
   .core { width: 264px; margin-left: -132px; }
   .mark { font-size: 36px; }
   .hub { padding: 20px 18px 18px; }
@@ -153,11 +153,12 @@ a { color: inherit; }
 }
 
 /* ---- short screens: the example gives way first */
-@media (min-width: 1021px) and (max-height: 700px) { .thread { display: none; } }
-@media (min-width: 1021px) and (max-height: 760px) { .qr { max-width: 172px; padding: 10px; } }
+@media (min-width: 1381px) and (max-height: 705px) { .thread { display: none; } }
+@media (min-width: 1260px) and (max-width: 1380px) and (max-height: 767px) { .thread { display: none; } }
+@media (min-width: 1260px) and (max-height: 760px) { .qr { max-width: 172px; padding: 10px; } }
 
 /* ---- phone and narrow windows: the card on top, then one trunk after another */
-@media (max-width: 1020px) {
+@media (max-width: 1259px) {
   html, body { height: auto; }
   .shell { height: auto; min-height: 100dvh; overflow: visible; max-width: 620px; margin: 0 auto; }
   .core { position: static; display: block; width: auto; margin: 0; padding: 14px 16px 0; pointer-events: auto; }
