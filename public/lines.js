@@ -322,7 +322,18 @@
     rest();
   }
 
-  function apply(next) {
+  // This page is the earlier line map, kept for comparison. It was built around a short list of samples,
+  // so it shows that list (plus everything that was really texted in), not the full tree's 300.
+  const SHORT = new Set(["campus life/dining/Dining line by text", "campus life/dining/Meal swipe sharing", "campus life/dining/Late night food map", "campus life/study spots/Open library seats", "campus life/study spots/Study group matcher", "campus life/housing/Sublet swap", "campus life/housing/Laundry machine alerts", "campus life/clubs/Club dues collector", "campus life/clubs/Event RSVP by text", "money/getting paid/Invoice chaser", "money/getting paid/Gig tax helper", "money/getting paid/Tutor pay reminders", "money/splitting costs/Split rent by text", "money/splitting costs/Trip cost splitter", "money/saving/Subscription canceler", "money/saving/Textbook price watch", "health/habits/Gym buddy check-ins", "health/habits/Sleep debt nudges", "health/habits/Water intake dashboard", "health/care/Refill before you run out", "health/care/Appointment wait alerts", "health/mental health/Peer check-in line", "health/mental health/Therapist finder", "getting around/wayfinding/Accessible entrances", "getting around/wayfinding/Indoor directions", "getting around/wayfinding/Parking spot predictor", "getting around/safety/Safe walk home", "getting around/safety/Late bus tracker", "getting around/rides/Airport ride share", "school/classes/Syllabus to calendar", "school/classes/Office hours queue", "school/classes/Course review digest", "school/studying/Quiz me from my notes", "school/studying/Lecture recap texts", "school/studying/Flashcard maker", "work/job hunt/Referral finder", "work/job hunt/Interview prep partner", "work/teams/Standup by text", "work/teams/Meeting notes bot", "home/chores/Chore rotation texts", "home/chores/Fridge expiry alerts", "home/moving/Move-out checklist", "community/volunteering/Food pantry stock alerts", "community/volunteering/Volunteer shift filler", "community/local/Lost and found line"]);
+  const trim = (map) => ({
+    ...map,
+    trunks: map.trunks
+      .map((t) => ({ ...t, branches: t.branches.map((b) => ({ ...b, ideas: b.ideas.filter((i) => !i.sample || SHORT.has(`${t.name}/${b.name}/${i.title}`)) })).filter((b) => b.ideas.length) }))
+      .filter((t) => t.branches.length),
+  });
+
+  function apply(full) {
+    const next = trim(full);
     // The live feed repeats the current map when it connects. Nothing changed, nothing to redraw.
     const raw = JSON.stringify(next);
     if (raw === seenRaw) return;
