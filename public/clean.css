@@ -1,0 +1,31 @@
+/* A quieter take on the same page: the invitation, the tree, and nothing that is not needed to use it. */
+@import "/map.css";
+
+.clean .tally, .clean .join label, .clean .thread { display: none; }
+.clean .view:not(.l2) .tag span { display: none; } /* branch names only, no counts */
+.clean .tag b { font-weight: 700; }
+.clean .hint { opacity: 0.75; }
+
+@media (min-width: 901px) {
+  .clean .shell { grid-template-columns: 470px minmax(0, 1fr); }
+  .clean .panel { position: relative; justify-content: center; gap: 26px; padding: 0 18px 60px 56px; overflow: visible; }
+  .clean .top { position: absolute; top: 30px; left: 56px; }
+  .clean .mark { font-size: 24px; }
+  .clean .hub h1 { font-size: 54px; white-space: nowrap; }
+  .clean .lede { margin: 18px 0 26px; font-size: 18px; line-height: 1.45; max-width: 19em; }
+  .clean .join input, .clean .join button { height: 54px; border-radius: 16px; font-size: 18px; }
+  .clean .join button { padding: 0 24px; }
+  /* The key shrinks to one quiet line at the foot of the page. */
+  .clean .key { position: absolute; left: 56px; bottom: 28px; padding: 0; border: 0; display: flex; gap: 20px; font-size: 0; }
+  .clean .key b { margin: 0; font-size: 14px; font-weight: 500; color: var(--mute); }
+  .clean .key .k-how { margin: 0 0 0 6px; }
+  .clean .key .k-how a { font-size: 14px; font-weight: 500; color: var(--mute); }
+  .clean .key svg { width: 14px; height: 14px; }
+  .clean .key li { gap: 7px; }
+  .clean .where { top: 30px; left: 34px; }
+  .clean .sign { margin-top: 4px; }
+}
+@media (max-width: 900px) {
+  .clean .key { font-size: 0; display: flex; flex-wrap: wrap; gap: 8px 16px; border: 0; padding-top: 0; }
+  .clean .key b, .clean .key .k-how a { font-size: 14px; font-weight: 500; color: var(--mute); }
+}
