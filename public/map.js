@@ -564,14 +564,25 @@
   }).observe($("views"));
 
   // ---- live: the server pushes the tree the moment a text is scored
+  // A browser only allows six open connections to one site, and every open tab holds one for live updates.
+  // So a tab that is not being looked at lets go of its connection, and takes it back when it is shown again.
+  let feed = null;
   function live() {
-    const es = new EventSource("/api/events");
-    es.onmessage = (e) => apply(JSON.parse(e.data));
-    es.onerror = () => {
-      es.close();
+    if (feed || document.hidden) return;
+    feed = new EventSource("/api/events");
+    feed.onmessage = (e) => apply(JSON.parse(e.data));
+    feed.onerror = () => {
+      feed?.close();
+      feed = null;
       setTimeout(live, 3000);
     };
   }
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      feed?.close();
+      feed = null;
+    } else live();
+  });
   fetch("/api/map", { cache: "no-store" })
     .then((res) => res.json())
     .then(apply)
