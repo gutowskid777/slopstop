@@ -53,7 +53,7 @@ const status = () => ({
   version: process.env.APP_VERSION ?? "dev",
   started,
   line: mapOnly ? "off" : lineUp ? "up" : "down",
-  answers: process.env.ONLY_FROM ? "test numbers only" : "everyone",
+  answers: process.env.ONLY_FROM ? "test numbers only" : process.env.IGNORE_FROM ? "everyone but the test numbers" : "everyone",
   ideas: store.mapIdeas().filter((i) => !i.sample).length,
   firestore: mirror ? mirror.status : "off",
 });

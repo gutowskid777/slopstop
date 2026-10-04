@@ -17,7 +17,7 @@ systemctl restart slopstop
 # Keep the last three releases for a quick roll back.
 ls -1dt /opt/slopstop/releases/* | tail -n +4 | xargs -r rm -rf
 for _ in $(seq 1 60); do
-  if curl -fsS http://127.0.0.1:1290/api/health; then echo; exit 0; fi
+  if curl -fs http://127.0.0.1:1290/api/health; then echo; exit 0; fi
   sleep 1
 done
 journalctl -u slopstop -n 60 --no-pager
