@@ -32,10 +32,10 @@ const rows: [string, string, string, number, number][] = [
   ["health", "care", "Appointment wait alerts", 7, 3],
   ["health", "mental health", "Peer check-in line", 8, 2],
   ["health", "mental health", "Therapist finder", 8, 6],
+  // The example texts on the map are about this one, so the numbers match: 10 x 10 - 5 x 2 = 90.
   ["getting around", "wayfinding", "Accessible entrances", 10, 2],
   ["getting around", "wayfinding", "Indoor directions", 6, 3],
   ["getting around", "wayfinding", "Parking spot predictor", 5, 6],
-  // The example texts on the map are about this one, so the numbers match: 10 x 9 - 5 x 2 = 80.
   ["getting around", "safety", "Safe walk home", 9, 2],
   ["getting around", "safety", "Late bus tracker", 7, 2],
   ["getting around", "rides", "Airport ride share", 7, 3],

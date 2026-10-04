@@ -344,6 +344,7 @@
       closeJoin(); // whoever scanned the code has texted: give the card back
     }
     render();
+    pointAtExample();
     if (fresh && tall()) $("nodes").querySelector(`.leaf[data-i="${fresh}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
   }
 
@@ -367,6 +368,30 @@
     pick(null);
   });
   $("sign-close").addEventListener("click", () => pick(null));
+
+  // The example texts are about one idea on the map. Pointing at them lights the line they became.
+  const EXAMPLE = "Accessible entrances";
+  const exampleKey = () => {
+    const s = [...spots.values()].find((x) => x.idea.sample && x.idea.title === EXAMPLE);
+    return s ? `i:${s.idea.id}` : null;
+  };
+  $("thread").addEventListener("pointerenter", () => {
+    const key = exampleKey();
+    if (key && !picked) light(key);
+  });
+  $("thread").addEventListener("pointerleave", () => rest());
+  // And once, right after the lines have grown, the map shows it without being asked.
+  let pointed = still;
+  function pointAtExample() {
+    if (pointed || tall()) return;
+    pointed = true;
+    setTimeout(() => {
+      const key = exampleKey();
+      if (!key || picked || held) return;
+      light(key);
+      setTimeout(() => !picked && !held && rest(), 2600);
+    }, 2300);
+  }
 
   // Redraw when the map's box or the card changes size (window resize, the scan code opening, a phone rotating).
   let resizing;
