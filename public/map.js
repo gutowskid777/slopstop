@@ -128,7 +128,7 @@
     const c = canvas.getBoundingClientRect(), h = $("hub").getBoundingClientRect();
     const hub = { l: h.left - c.left, r: h.right - c.left, y: h.top - c.top + h.height / 2, h: h.height };
     const most = Math.max(...sides.map((side) => side.reduce((s, t) => s + t.n, 0)), 1);
-    const gap = Math.max(1.4, Math.min(3, (hub.h - 48) / most)); // how far apart two lines run in a bundle
+    const gap = Math.max(1.4, Math.min(4, (hub.h - 48) / most)); // how far apart two lines run in a bundle
     canvas.style.setProperty("--sw", `${r(Math.max(1.1, gap - 1))}px`);
 
     sides.forEach((side, s) => {
