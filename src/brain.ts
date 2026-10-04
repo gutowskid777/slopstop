@@ -60,7 +60,7 @@ FIELDS
 - branch: the specific theme inside that trunk, 1-3 lowercase words. Reuse an existing branch only when this idea is about the same thing. An idea about something else gets its own branch: never file an idea under a branch just because it exists.
 - verdict: ONE short sentence. Why the two numbers are what they are, and which side to push: cut the fix, or go after a sharper pain. Code prepends the call (build it / sharpen it / drop it), so never state the call yourself.
 - move: ONE concrete thing to do in the next 24 hours to test it. Name the kind of person or place.
-- ask: "none" unless ASK ALLOWED is yes. When it is yes you know nothing about the sender, so pick the ONE question about the builder's leverage whose answer would change the most: "college" (are they in college: unlocks clubs, campus resources, a captive first audience), "self" (do they have this problem themselves), "users" (do they already have users). If this text already tells you who they are, "none".
+- ask: "none" unless ASK ALLOWED is yes. When it is yes you know nothing about the sender, so pick the ONE question about the builder's leverage whose answer would change the most: "self" (do they have this problem themselves), "users" (do they already have users). If this text already tells you who they are, "none".
 - more: true only if the text pitches more than one separate idea. Rate the first one.
 - fact: a durable fact the sender revealed about themselves in THIS message (school, job, role, city), as a short phrase. Otherwise empty.
 - plays: kind "context" only, when the new fact opens moves. 2-3 very short specific plays that fact unlocks. Name only resources you are confident exist. Otherwise name the kind of resource.

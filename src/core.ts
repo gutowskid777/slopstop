@@ -32,7 +32,7 @@ const copy = {
   pitch: "text me an idea or what you're building. i score it out of 100 and connect you w/ the builders closest to it.",
   how: "score = 10 x problem - 5 x fix, both rated 0-10. the problem counts double, the fix counts against you.\nalso: mine, me, near, delete, private, public, map, stop, forget me.",
   // The one question, once. The model picks which; the wording is fixed so it never turns into an interview.
-  ask: { college: "you in college?", self: "you have this problem yourself?", users: "you already have users?" },
+  ask: { college: "you have this problem yourself?", self: "you have this problem yourself?", users: "anyone using it yet?" },
   more: "text the other idea on its own and i'll score that too.",
   meEmpty: 'nothing yet. text "me: ..." and tell me anything: school, what you do, who you build for.',
   meSet: "got it. that's what i know about you now.",

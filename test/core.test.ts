@@ -59,7 +59,7 @@ test("an idea gets one number out of 100 with the two inputs beside it", async (
 test("the one question is asked once, only when nobody is near, and its answer re-reads the idea", async () => {
   const w = world((t) => (/cornell/.test(t) ? { kind: "context", problem: 8, fact: "cornell sophomore", plays: ["pitch it at appdev"] } : { ask: "college" }));
   await w.text("+15550001", "open library seats by text");
-  assert.match(w.said("+15550001"), /you in college\?$/);
+  assert.match(w.said("+15550001"), /you have this problem yourself\?$/);
   await w.text("+15550001", "yeah im a sophomore at cornell");
   assert.match(w.said("+15550001"), /70\/100 now, was 60/);
   assert.match(w.said("+15550001"), /1\. pitch it at appdev/);
@@ -145,7 +145,7 @@ test("an answer and a new idea in one text is a new idea, and the old one is lef
   // The model gets this wrong on its own (it calls the whole text an answer), which is how it was found.
   const w = world((t) => (/new idea/i.test(t) ? { kind: "context", title: "Persona prank bot", gist: "friends prank each other", branch: "pranks", problem: 4, fix: 2 } : { ask: "users" }));
   await w.text("+15550001", "a text line that scores ideas");
-  assert.match(w.last("+15550001"), /you already have users\?/);
+  assert.match(w.last("+15550001"), /anyone using it yet\?/);
   await w.text("+15550001", "No I'll go do that tho. New idea is a persona bot to prank your friends");
   const mine = w.store.ideasBy("+15550001");
   assert.deepEqual(mine.map((i) => [i.title, i.score]), [["Library seat finder", 60], ["Persona prank bot", 30]]);
