@@ -198,3 +198,6 @@ a { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+.brand { display: inline-flex; align-items: center; gap: 10px; }
+.brand .logo { width: 34px; height: 34px; flex: none; filter: drop-shadow(0 0 10px rgba(255,194,74,.35)); }
