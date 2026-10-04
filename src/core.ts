@@ -4,7 +4,7 @@ import { read as readBrain, embed as embedBrain, judge as judgeBrain, type Read,
 import { score, call } from "./score.js";
 import { candidates, nearest, CLOSE, SURE } from "./match.js";
 import { newId, type Idea, type Intro, type Store, type User } from "./store.js";
-import { makeDeck, deckName } from "./deck.js";
+import { makeDeck, deckName, imageFor, type ImageResult } from "./deck.js";
 
 /** What the core wants sent. The transport decides how (bubble, tapback, effect, contact card). */
 export type Out =
@@ -23,6 +23,8 @@ export type Deps = {
   judge?: (a: Idea, b: Idea) => Promise<boolean | undefined>;
   /** Make the pitch deck PDF for an idea and return its path. */
   deck?: (idea: Idea, facts: string[]) => Promise<string>;
+  /** The idea's product picture (the same one the deck uses), or why there isn't one. */
+  image?: (idea: Idea, facts: string[]) => Promise<ImageResult>;
   /** Only texted when it is a real public URL. */
   mapUrl?: string;
   /** Something the map shows has changed. */
@@ -34,7 +36,7 @@ const t = (text: string, effect?: "slam" | "confetti"): Out => ({ type: "text", 
 // Every word the agent can say that the model didn't write. Tone: a sharp friend texting. Lowercase, short, no filler.
 const copy = {
   pitch: "text me an idea or what you're building. i score it out of 100 and connect you w/ the builders closest to it.",
-  how: "score = 10 x problem - 5 x fix, both rated 0-10. the problem counts double, the fix counts against you.\nalso: deck, mine, me, near, delete, private, public, map, stop, forget me.",
+  how: "score = 10 x problem - 5 x fix, both rated 0-10. the problem counts double, the fix counts against you.\nalso: deck, image, mine, me, near, delete, private, public, map, stop, forget me.",
   // The one question, once. The model picks which; the wording is fixed so it never turns into an interview.
   ask: { college: "you have this problem yourself?", self: "you have this problem yourself?", users: "anyone using it yet?" },
   more: "text the other idea on its own and i'll score that too.",
@@ -68,6 +70,10 @@ const copy = {
   deckHere: "here's your deck.",
   deckDown: "deck's not working rn, try again in a min.",
   deckNone: "no idea to make a deck for yet. text me one.",
+  imageMaking: "drawing it, one sec.",
+  imageCap: "image limit hit for today, the deck still works.",
+  imageDown: "image's not working rn, the deck still works.",
+  imageNone: "no idea to draw yet. text me one.",
 };
 
 // Swapping numbers needs a real yes. "ok" and "k" are acknowledgements, not consent, so they are not on this list.
@@ -105,6 +111,9 @@ const DELETE = /^(?:(?:delete|remove|undo|scratch|drop|erase)(?:\s+(?:that|it|th
 const NEAR = /^(?:(?:who'?s|whos|who is|anyone|anybody|who else)\b.*\b(?:near|close|nearby|similar)\b.*|near|nearby|near me|close to me)$/;
 /** "private: my idea" keeps it off the map from the start. The colon matters: "private equity tracker" is just an idea. */
 const PRIVATE = /^private\s*[:,-]\s*/i;
+/** "image", "photo", "pic 2", "send me a picture": the product picture for any idea at any score. */
+const IMAGE = /^(?:(?:send|make|give|show)\s+(?:me\s+)?)?(?:(?:a|an|the|my)\s+)?(?:product\s+)?(?:image|photo|pic|picture|pics)(?:\s+(?:for\s+)?#?(\d+))?(?:\s+(?:pls|please))?$/;
+
 /** "deck", "deck 2", "send me the deck", "make me a deck": the override, a deck for any idea at any score. */
 const DECK = /^(?:(?:send|make|give)\s+(?:me\s+)?)?(?:(?:a|the|my)\s+)?(?:pitch\s+)?(?:deck|slides|slide deck)(?:\s+(?:for\s+)?#?(\d+))?(?:\s+(?:pls|please))?$/;
 
@@ -216,6 +225,15 @@ export async function handle(sender: string, raw: string, d: Deps, image?: Brain
     return sendDeck(idea, sender, copy.deckHere, d);
   }
 
+  const pic = bare.match(IMAGE);
+  if (pic) {
+    const mine = store.ideasBy(sender);
+    const idea = pic[1] ? mine[Number(pic[1]) - 1] : (store.idea(user.lastIdea ?? "") ?? mine.at(-1));
+    if (!idea) return say(t(copy.imageNone));
+    await say(t(copy.imageMaking));
+    return sendImage(idea, sender, d);
+  }
+
   const vis = bare.match(/^(?:make it |keep it |go )?(public|private)(?:\s+#?(\d+))?$/);
   if (vis) {
     const mine = store.ideasBy(sender);
@@ -323,8 +341,28 @@ export async function handle(sender: string, raw: string, d: Deps, image?: Brain
       await say(t(question));
     } else await offerIntro(idea, store.user(sender), d);
   }
-  // A 70 is a build. A build earns a deck, last, so the score and the connection land first.
-  if (s >= 70) await sendDeck(idea, sender, copy.deckEarned, d);
+  // A 70 is a build. A build earns the picture and the deck, last, so the score and the connection land first.
+  if (s >= 70) await sendBuild(idea, sender, copy.deckEarned, d);
+}
+
+/** A build: the product picture first, then the deck. The deck reuses the same picture, so it's one drawing, not two. */
+async function sendBuild(idea: Idea, to: string, line: string, d: Deps) {
+  await sendImage(idea, to, d);
+  await sendDeck(idea, to, line, d);
+}
+
+/** Text the product picture. Over the daily cap or failing, one short line says so and the deck still goes. */
+async function sendImage(idea: Idea, to: string, d: Deps) {
+  let got: ImageResult;
+  try {
+    got = await (d.image ?? imageFor)(idea, d.store.user(to).facts);
+  } catch (err) {
+    console.error(`image failed: ${String((err as Error)?.message ?? err).slice(0, 200)}`);
+    got = { miss: "fail" };
+  }
+  if ("miss" in got) return d.send(to, [t(got.miss === "cap" ? copy.imageCap : copy.imageDown)]);
+  const ext = got.mimeType === "image/png" ? "png" : got.mimeType === "image/webp" ? "webp" : "jpg";
+  await d.send(to, [{ type: "file", path: got.path, name: `${deckName(idea).replace(/ pitch deck\.pdf$/, "")}.${ext}`, mimeType: got.mimeType }]);
 }
 
 /** Make the deck and text it. A deck that fails says so; it never takes the conversation down with it. */
@@ -365,7 +403,7 @@ async function addContext(user: User, idea: Idea, r: Read, d: Deps) {
         ];
   await d.send(user.id, out);
   if (!idea.private && !store.intros().some((x) => x.ideaA === idea.id)) await offerIntro(idea, store.user(user.id), d);
-  if (s >= 70 && before < 70) await sendDeck(idea, user.id, copy.deckEarnedNow, d);
+  if (s >= 70 && before < 70) await sendBuild(idea, user.id, copy.deckEarnedNow, d);
 }
 
 /** Work out which other builders are on the same problem, once, and remember it on both ideas. */

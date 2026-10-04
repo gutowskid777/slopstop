@@ -135,12 +135,33 @@ function countImage() {
   writeFileSync(COUNT(), JSON.stringify({ day, n: n + 1 }));
 }
 
+/** Where an idea's product picture lives once it exists. One per idea and score. */
+export const pictureFile = (idea: Idea) => join(DIR, `${idea.id}-${idea.score}.jpg`);
+
+/** What the bytes really are: the model may hand back a PNG even though the file says .jpg. */
+export function pictureMime(file: string): string {
+  const head = readFileSync(file).subarray(0, 4);
+  return head[0] === 0x89 && head[1] === 0x50 ? "image/png" : head[0] === 0x52 && head[1] === 0x49 ? "image/webp" : "image/jpeg";
+}
+
+// A deck and an "image" text for the same idea can land at once. They share one generation, never two.
+const drawing = new Map<string, Promise<string | undefined>>();
+
 /** A product photo for the deck, as a data URL. Undefined when there is no key, no prompt, no budget left, or it fails. */
-export async function makePicture(idea: Idea, prompt: string): Promise<string | undefined> {
-  if (!process.env.GEMINI_API_KEY || !prompt || process.env.DECK_IMAGES === "off") return undefined;
+export function makePicture(idea: Idea, prompt: string): Promise<string | undefined> {
+  const key = pictureFile(idea);
+  const running = drawing.get(key);
+  if (running) return running;
+  const job = drawPicture(idea, prompt).finally(() => drawing.delete(key));
+  drawing.set(key, job);
+  return job;
+}
+
+async function drawPicture(idea: Idea, prompt: string): Promise<string | undefined> {
   mkdirSync(DIR, { recursive: true });
-  const file = join(DIR, `${idea.id}-${idea.score}.jpg`);
-  if (existsSync(file)) return `data:image/jpeg;base64,${readFileSync(file).toString("base64")}`;
+  const file = pictureFile(idea);
+  if (existsSync(file)) return `data:${pictureMime(file)};base64,${readFileSync(file).toString("base64")}`;
+  if (!process.env.GEMINI_API_KEY || !prompt || process.env.DECK_IMAGES === "off") return undefined;
   if (imagesLeft() <= 0) return undefined;
   const ask = `${prompt} Clean, realistic product photography, soft natural light, calm neutral background, plenty of empty space. Absolutely no text, letters, numbers, labels or logos anywhere in the image.`;
   for (const model of IMAGE_MODELS) {
@@ -263,11 +284,46 @@ export async function renderDeck(idea: Idea, c: DeckCopy, picture?: string): Pro
   }
 }
 
+// The deck's words, cached per idea and score: the picture prompt lives in them, so "image" and "deck" agree.
+const writing = new Map<string, Promise<DeckCopy>>();
+export function copyFor(idea: Idea, facts: string[]): Promise<DeckCopy> {
+  const file = join(DIR, `${idea.id}-${idea.score}-copy.json`);
+  if (existsSync(file)) {
+    try {
+      return Promise.resolve(tidyCopy(JSON.parse(readFileSync(file, "utf8")), idea));
+    } catch {}
+  }
+  const running = writing.get(file);
+  if (running) return running;
+  const job = writeCopy(idea, facts)
+    .then((c) => {
+      mkdirSync(DIR, { recursive: true });
+      if (process.env.GEMINI_API_KEY) writeFileSync(file, JSON.stringify(c));
+      return c;
+    })
+    .finally(() => writing.delete(file));
+  writing.set(file, job);
+  return job;
+}
+
+export type ImageResult = { path: string; mimeType: string } | { miss: "cap" | "fail" };
+
+/** The product picture on its own, for texting. Reuses the deck's cached picture, never draws a second one. */
+export async function imageFor(idea: Idea, facts: string[]): Promise<ImageResult> {
+  const file = pictureFile(idea);
+  if (existsSync(file)) return { path: file, mimeType: pictureMime(file) };
+  if (imagesLeft() <= 0) return { miss: "cap" };
+  const words = await copyFor(idea, facts).catch(() => undefined);
+  if (words?.picture) await makePicture(idea, words.picture).catch(() => undefined);
+  if (existsSync(file)) return { path: file, mimeType: pictureMime(file) };
+  return { miss: imagesLeft() <= 0 ? "cap" : "fail" };
+}
+
 /** The whole thing: words, then the picture, then the PDF. */
 export async function makeDeck(idea: Idea, facts: string[]): Promise<string> {
   const cached = join(DIR, `${idea.id}-${idea.score}-v2.pdf`);
   if (existsSync(cached)) return cached;
-  const copy = await writeCopy(idea, facts);
+  const copy = await copyFor(idea, facts);
   // The picture is a bonus: if it fails, is over the daily cap or takes too long, the deck ships without it.
   const picture = await makePicture(idea, copy.picture).catch(() => undefined);
   return renderDeck(idea, copy, picture);
