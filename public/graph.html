@@ -6,10 +6,10 @@
 <title>How the score works</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
 <style>
   /* The same pale paper, sage and gold as the tree. Gold is the corner worth building in. */
-  :root { --paper: #f6f8f1; --wash: #dce4d2; --ink: #22332a; --soft: #6a786e; --fruit: #f2b53b; --font: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif; }
+  :root { --paper: #05070f; --wash: #1c2444; --ink: #eef1fb; --soft: #8d97b8; --fruit: #f6b545; --font: "Archivo", "Helvetica Neue", Arial, sans-serif; }
   * { box-sizing: border-box; margin: 0; }
   html, body { height: 100%; }
   body { background: var(--paper); color: var(--ink); font-family: var(--font); font-size: 17px; line-height: 1.4; -webkit-font-smoothing: antialiased; }
@@ -27,12 +27,12 @@
   /* The one knob in the score. "half" is what the agent uses; the other two are there to compare. */
   .weigh { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 15.5px; font-weight: 700; color: var(--soft); }
   .weigh span { flex-basis: 100%; }
-  .weigh button { height: 38px; padding: 0 12px; font-weight: 800; font-size: 15.5px; background: #fff; border: 2px solid var(--ink); border-radius: 12px; cursor: pointer; }
-  .weigh button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  .weigh button { height: 38px; padding: 0 12px; font-weight: 800; font-size: 15.5px; background: none; border: 2px solid var(--ink); border-radius: 12px; cursor: pointer; }
+  .weigh button[aria-pressed="true"] { background: var(--ink); color: #05070f; }
   .pins { display: grid; gap: 16px; margin-top: 6px; }
   .pin { display: grid; grid-template-columns: 36px auto 1fr; column-gap: 12px; align-items: center; }
-  .pin-letter { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 19px; color: #fff; background: var(--ink); }
-  .pin.b .pin-letter { background: #fff; color: var(--ink); box-shadow: inset 0 0 0 3px var(--ink); }
+  .pin-letter { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 19px; color: #05070f; background: #7c9cff; }
+  .pin.b .pin-letter { background: #0b1128; color: var(--ink); box-shadow: inset 0 0 0 3px var(--ink); }
   .pin-score { font-weight: 800; font-size: 60px; line-height: 0.86; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; min-width: 1.45em; }
   .pin-what { font-weight: 800; font-size: 17px; line-height: 1.15; }
   .pin-math { font-size: 16px; color: var(--soft); font-weight: 700; margin-top: 3px; font-variant-numeric: tabular-nums; }
@@ -42,8 +42,8 @@
   .plot { position: relative; min-width: 0; min-height: 0; display: grid; place-items: center; padding: 14px 18px; }
   #graph { display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
   #graph text { font-family: var(--font); fill: var(--ink); }
-  .low { fill: #ecf1e4; }
-  .mid { fill: #cfe0c6; }
+  .low { fill: #0d1330; }
+  .mid { fill: #22306b; }
   .high { fill: var(--fruit); }
   .dead { fill: var(--paper); opacity: 1; }
   .iso { fill: none; stroke: var(--ink); stroke-opacity: 0.16; stroke-width: 1.2; }
@@ -56,13 +56,13 @@
   .zone-name { font-size: 23px; font-weight: 800; letter-spacing: -0.01em; paint-order: stroke; stroke: var(--paper); stroke-width: 6; stroke-linejoin: round; }
   .zone-name.quiet { font-size: 17px; font-weight: 800; }
   .idea { fill: var(--ink); stroke: var(--paper); stroke-width: 2; }
-  .idea.sample { fill: var(--ink); fill-opacity: 0.2; stroke: none; }
+  .idea.sample { fill: #7c9cff; fill-opacity: 0.4; stroke: none; }
   .knob { cursor: grab; }
   .knob:active { cursor: grabbing; }
-  .knob circle { stroke: #fff; stroke-width: 3.5; }
-  .knob.b circle { fill: #fff; stroke: var(--ink); }
+  .knob circle { stroke: #05070f; stroke-width: 3.5; }
+  .knob.b circle { fill: #0b1128; stroke: var(--ink); }
   .knob.b text { fill: var(--ink) !important; }
-  .knob text { fill: #fff !important; font-weight: 800; font-size: 21px; text-anchor: middle; pointer-events: none; }
+  .knob text { fill: #05070f !important; font-weight: 800; font-size: 21px; text-anchor: middle; pointer-events: none; }
   .knob .tag { fill: var(--ink) !important; font-size: 26px; text-anchor: start; paint-order: stroke; stroke: var(--paper); stroke-width: 6; stroke-linejoin: round; }
   .knob:focus-visible { outline: none; }
   .knob:focus-visible circle { stroke: var(--ink); }
@@ -97,10 +97,10 @@
       <div class="pin b"><span class="pin-letter">B</span><span class="pin-score" id="b-score">65</span><div><p class="pin-what" id="b-what"></p><p class="pin-math" id="b-math"></p></div></div>
     </div>
     <p class="gap" id="gap"></p>
-    <p class="hint">Drag A and B. The circles are the ideas on the tree: bigger means more of them, solid means texted in.</p>
+    <p class="hint">Drag A and B. The circles are the ideas on the map: bigger means more of them, solid means texted in.</p>
     <footer class="foot">
       <p>Fix is what it costs to adopt: finding it, learning it, the habit, paying, upkeep.</p>
-      <a href="/">The tree</a>
+      <a href="/">The map</a>
     </footer>
   </section>
   <section class="plot" id="plot" aria-label="Problem against fix">
@@ -232,7 +232,7 @@
     for (const k of ["a", "b"]) {
       const { p, f } = pins[k];
       const g = el("g", { class: `knob ${k}`, tabindex: 0, role: "slider", "aria-label": `Idea ${k.toUpperCase()}: problem ${p}, fix ${f}, score ${score(p, f)}. Arrow keys move it.`, "data-k": k, transform: `translate(${X(f)} ${Y(p)})` });
-      g.append(el("circle", { r: 21, fill: "#22332a" }));
+      g.append(el("circle", { r: 21, fill: "#7c9cff" }));
       g.append(el("text", { y: 7.5 }, k.toUpperCase()));
       g.append(el("text", { class: "tag", x: f >= 8 ? -70 : 30, y: 9 }, score(p, f)));
       svg.append(g);

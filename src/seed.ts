@@ -72,6 +72,26 @@ const TREE: Record<string, string> = {
   "community/friends": "Plan picker for groups 6 2; Birthday reminders 4 1; Who's free tonight 5 2; Trip planning vote 5 3; Photo dump collector 3 2; Long distance check-ins 5 2",
   "community/newcomers": "New in town guide 6 3; Intl student help line 9 3; Language exchange match 6 4; First winter survival 5 2; Bank account setup guide 7 3",
 
+  "creative/music": "Band practice scheduler 5 2; Setlist by text 4 2; Gig finder for students 6 3; Split the studio bill 5 2; Lyric idea catcher 4 2",
+  "creative/video": "Clip finder from long video 7 4; Caption fixer 6 2; B-roll swap board 4 3; Upload schedule nudges 5 1; Thumbnail tester 5 3",
+  "creative/writing": "Daily writing prompt 3 1; Draft reader swap 6 3; Newsletter from notes 6 3; Zine submissions line 4 3; Poetry open mic finder 3 2",
+  "creative/design": "Feedback in one thread 7 2; Font pairing helper 3 2; Portfolio review queue 6 3; Brand kit from a photo 5 4; Poster print orders 4 3",
+  "creative/photos": "Event photo collector 7 2; Headshot day signup 5 2; Shared album cleanup 5 3; Film lab status texts 4 1; Photo credit tracker 5 3",
+  "creative/gaming": "Squad finder by schedule 5 3; Tournament bracket texts 5 2; LAN party planner 3 3; Mod install helper 4 5",
+
+  "family/parents": "Weekly call reminder 5 1; Shared family calendar 6 3; Tuition bill explainer 7 3; Care package sender 4 3; Parent portal digest 5 2",
+  "family/kids": "School pickup swap 8 3; Lunch money alerts 6 2; Homework check-in texts 6 2; Babysitter finder 8 5; Field trip form nudges 7 1",
+  "family/elder care": "Medication check calls 9 3; Ride to appointments 8 4; Daily check-in text 8 2; Shared care notes 8 3; Fall alert relay 9 5",
+  "family/planning": "Reunion date picker 5 2; Holiday cost splitter 5 3; Recipe keeper by voice 4 2; Family photo archive 5 5; Gift idea list 4 1",
+  "family/paperwork": "Will and wishes checklist 7 5; Insurance renewal nudges 7 2; Shared document vault 7 5; Tax form collector 8 3; Benefits finder 8 4",
+
+  "small business/customers": "Missed call text back 9 2; Review request texts 7 2; Appointment reminders 8 2; Waitlist by text 7 2; Lost customer win-back 6 3",
+  "small business/money": "Receipt catcher 7 2; Cash flow weekly text 8 3; Late invoice nudges 9 2; Sales tax reminder 7 2; Price change helper 5 3",
+  "small business/staff": "Shift cover finder 9 2; Time-off requests by text 6 2; Training checklist 5 3; Tip split calculator 6 2; New hire paperwork 6 3",
+  "small business/stock": "Low stock alerts 8 3; Supplier reorder texts 7 3; Spoilage log 6 3; Delivery tracker 6 2; Inventory by photo 7 4",
+  "small business/marketing": "Daily special texts 6 2; Flyer maker 4 3; Local event tie-ins 4 3; Google listing fixer 7 3; Regulars birthday texts 5 2",
+  "small business/operations": "Opening checklist 5 2; Permit renewal nudges 8 2; Equipment repair log 6 3; Closing cash count 6 2; Health inspection prep 8 3",
+
   "productivity/focus": "Phone lockbox timer 6 3; Shorts blocker 7 3; Deep work buddy 5 3; Tab hoarder cleanup 4 2; One thing today text 5 1; Distraction log 3 3",
   "productivity/planning": "Weekly plan by text 6 2; Deadline radar 8 2; Calendar from a photo 6 2; Time estimate coach 5 4; Sunday reset checklist 4 1; Overcommit warning 6 3",
   "productivity/notes": "Voice note to tasks 6 2; Meeting notes cleanup 5 3; Find that note search 6 4; Whiteboard photo to text 5 2; Highlights digest 3 3",
