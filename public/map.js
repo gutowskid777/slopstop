@@ -38,7 +38,13 @@
   let partners = new Map(); // id -> ids of ideas whose builders said yes to each other
   let layers = {};
 
-  // Biggest trunk first, biggest branch first, best idea first.
+  // Where each trunk and branch was first drawn. A new idea should add a line, not shuffle the map.
+  const seat = new Map(); // trunk name -> which side of the card
+  const rank = new Map(); // trunk or branch -> its place in line
+  const place = (key) => rank.get(key) ?? rank.set(key, rank.size).get(key);
+
+  // On first sight: biggest trunk first, biggest branch first. After that everything keeps its place.
+  // Inside a branch the best idea is always on top.
   function tree() {
     const trunks = data.trunks.map((t, ti) => {
       const branches = t.branches
@@ -46,12 +52,18 @@
         .sort((a, c) => c.ideas.length - a.ideas.length || c.ideas[0].score - a.ideas[0].score);
       return { name: t.name, ti: String(ti), branches, n: branches.reduce((s, b) => s + b.ideas.length, 0) };
     });
-    return trunks.sort((a, c) => c.n - a.n);
+    trunks.sort((a, c) => c.n - a.n);
+    for (const t of trunks) {
+      place(`t:${t.name}`);
+      for (const b of t.branches) place(`b:${t.name}/${b.name}`);
+      t.branches.sort((a, c) => place(`b:${t.name}/${a.name}`) - place(`b:${t.name}/${c.name}`));
+    }
+    return trunks.sort((a, c) => place(`t:${a.name}`) - place(`t:${c.name}`));
   }
 
   // ---- the pieces both layouts draw with
   function wire(d, idea, t, b, order) {
-    const moving = opening || idea.id === landing;
+    const moving = !still && (opening || idea.id === landing);
     const p = svg("path", { class: `w ${call(idea.score)[2]}${moving ? " grow" : ""}`, d, "data-i": idea.id, "data-b": b.key, "data-t": t.ti });
     if (moving) {
       p.setAttribute("pathLength", 1);
@@ -96,9 +108,12 @@
 
   function drawWide(trunks, canvas, stage) {
     const W = stage.clientWidth, view = stage.clientHeight;
-    // Two sides, as even as they come.
+    // Two sides, as even as they come. A trunk stays on the side it started on.
     const sides = [[], []];
-    for (const t of trunks) sides[height(sides[1]) < height(sides[0]) ? 1 : 0].push(t);
+    for (const t of trunks) {
+      if (!seat.has(t.name)) seat.set(t.name, height(sides[1]) < height(sides[0]) ? 1 : 0);
+      sides[seat.get(t.name)].push(t);
+    }
     const rows = Math.max(height(sides[0]), height(sides[1]), 1);
     const pad = 24;
     const row = Math.max(19, Math.min(31, (view - pad * 2) / rows));

@@ -106,13 +106,17 @@ a { color: inherit; }
 
 #nodes > * { transition: opacity 0.18s; }
 .focus .w:not(.lit) { opacity: 0.13; }
+/* The one in the light is drawn heavier, and a gray line darkens so a low score still shows up. */
+.focus .w.lit { stroke-width: calc(var(--sw, 2px) + 1.2px); }
+.focus .w.drop.lit, .focus .leaf.drop.lit { --c: #7b7f88; }
+.focus .leaf.drop.lit .num, .focus .leaf.drop.lit .ttl { color: var(--ink); }
 .focus #nodes > :not(.lit) { opacity: 0.26; }
 .rise { animation: rise 0.45s ease-out backwards; }
 @keyframes rise { from { opacity: 0; } }
 
 /* Trunk and branch names sit on their own bundle of lines, which breaks behind the word. */
 .chip { position: absolute; transform: translate(-50%, -50%); padding: 3px 7px; border-radius: 8px; background: var(--paper); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.12; cursor: default; user-select: none; }
-.chip.t { font-size: var(--tf, 21px); font-weight: 800; font-stretch: 78%; }
+.chip.t { padding: 4px 10px 5px; border-radius: 10px; background: var(--ink); color: #fff; font-size: var(--tf, 21px); font-weight: 800; font-stretch: 78%; }
 .chip.b { font-size: var(--bf, 15px); font-weight: 600; font-stretch: 78%; }
 
 .leaf { position: absolute; display: flex; align-items: center; gap: 6px; height: var(--row, 24px); margin-top: calc(var(--row, 24px) / -2); padding: 0; border: 0; background: none; color: var(--ink); font-size: var(--fs, 14.5px); font-stretch: 84%; line-height: 1; white-space: nowrap; cursor: pointer; }
@@ -161,7 +165,7 @@ a { color: inherit; }
   .stage { position: static; overflow: visible; padding: 18px 0 8px; }
   .empty { position: static; padding: 0 18px; }
   .canvas.tall .chip { transform: translateY(-50%); padding: 0 3px; margin-left: -3px; background: none; max-width: calc(100% - 36px); }
-  .canvas.tall .chip.t { font-size: 24px; }
+  .canvas.tall .chip.t { color: var(--ink); font-size: 24px; }
   .canvas.tall .chip.b { font-size: 14.5px; color: var(--mute); }
   .shell { display: flex; flex-direction: column; }
   .core { display: contents; }
