@@ -44,6 +44,8 @@ export function startServer(opts: {
   play?: (from: string, text: string) => Promise<Line[]>;
   /** Have the agent text a real number first. This machine only. */
   ping?: (to: string, text: string) => Promise<void>;
+  /** What /api/health reports: the version, whether the line is up, whether the hosted copy is current. */
+  status?: () => Record<string, unknown>;
 }) {
   const { store } = opts;
   const watchers = new Set<ServerResponse>();
@@ -77,8 +79,12 @@ export function startServer(opts: {
         return;
       }
 
+      if (path === "/api/health") return json(res, 200, { ok: true, ...opts.status?.() });
+
       if (path.startsWith("/api/dev/") && req.method === "POST") {
-        const local = ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress ?? "");
+        // This machine only. A proxy or tunnel also connects from 127.0.0.1, so a forwarded request is never local.
+        const forwarded = Boolean(req.headers["x-forwarded-for"] || req.headers["cf-connecting-ip"] || req.headers["x-real-ip"]);
+        const local = !forwarded && ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress ?? "");
         if (!local) return json(res, 404, { error: "Not found" });
         const b = await body(req);
         if (path === "/api/dev/text" && opts.play) return json(res, 200, { lines: await opts.play(String(b.from ?? "you"), String(b.text ?? "")) });
@@ -125,8 +131,9 @@ export function startServer(opts: {
     console.error(err.code === "EADDRINUSE" ? `already running on port ${opts.port}. stop it first: npm run stop` : err);
     process.exit(1);
   });
-  server.listen(opts.port, () => console.log(`map on http://localhost:${opts.port}   graph on http://localhost:${opts.port}/graph`));
+  // HOST=127.0.0.1 on the server: only the web proxy in front of it can reach the port.
+  server.listen(opts.port, process.env.HOST, () => console.log(`map on http://localhost:${opts.port}   graph on http://localhost:${opts.port}/graph`));
   /** Resolves once the port is ours. */
   const ready = new Promise<void>((done) => server.once("listening", () => done()));
-  return { broadcast, ready, close: () => server.close() };
+  return { broadcast, ready, close: () => server.close(), port: () => (server.address() as { port: number }).port };
 }

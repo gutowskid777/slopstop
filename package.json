@@ -11,7 +11,8 @@
     "seed": "tsx src/seed.ts",
     "doctor": "tsx src/doctor.ts",
     "test": "tsx --test test/*.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "deploy": "bash deploy/deploy.sh"
   },
   "license": "ISC",
   "dependencies": {

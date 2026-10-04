@@ -275,7 +275,9 @@ export async function renderDeck(idea: Idea, c: DeckCopy, picture?: string): Pro
     writeFileSync(html, deckHtml(idea, c, picture));
     const out = join(work, "deck.pdf");
     // Its own throwaway profile, so it never touches the Chrome a person has open on this laptop.
-    await run(CHROME, ["--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check", `--user-data-dir=${join(work, "profile")}`, "--no-pdf-header-footer", `--print-to-pdf=${out}`, `file://${html}`], 45_000);
+    // CHROME_FLAGS adds what a small Linux server needs (e.g. --disable-dev-shm-usage).
+    const extra = (process.env.CHROME_FLAGS ?? "").split(/\s+/).filter(Boolean);
+    await run(CHROME, ["--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check", ...extra, `--user-data-dir=${join(work, "profile")}`, "--no-pdf-header-footer", `--print-to-pdf=${out}`, `file://${html}`], 45_000);
     if (!existsSync(out)) throw new Error("chrome printed nothing");
     writeFileSync(pdf, readFileSync(out));
     return pdf;

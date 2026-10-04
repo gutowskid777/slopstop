@@ -1,0 +1,22 @@
+[Unit]
+Description=SlopStop: the iMessage agent and the map
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=slopstop
+Group=slopstop
+WorkingDirectory=/opt/slopstop/current
+# Keys and settings (root-only file). The release file carries the version deploy shipped.
+EnvironmentFile=/etc/slopstop/env
+EnvironmentFile=-/opt/slopstop/current/.release
+Environment=HOME=/var/lib/slopstop
+ExecStart=/opt/node/bin/node --import tsx src/main.ts
+Restart=always
+RestartSec=3
+TimeoutStopSec=15
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

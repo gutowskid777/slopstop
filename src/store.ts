@@ -1,4 +1,4 @@
-// Storage seam. JsonStore is the weekend version; a hosted store only has to implement Store.
+// Storage seam. JsonStore keeps the working copy on disk; on the server, mirror.ts copies every write to Firestore.
 import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
@@ -80,13 +80,15 @@ export interface Store {
   forget(id: string): void;
 }
 
-type Db = { users: Record<string, User>; ideas: Idea[]; intros: Intro[] };
+export type Db = { users: Record<string, User>; ideas: Idea[]; intros: Intro[] };
 
-const empty = (): Db => ({ users: {}, ideas: [], intros: [] });
+export const empty = (): Db => ({ users: {}, ideas: [], intros: [] });
 
 export class JsonStore implements Store {
   private db: Db = empty();
   private stamp = 0;
+  /** Called after every change, from this process or picked up from another. The hosted copy hangs off this. */
+  onChange?: () => void;
   constructor(private path = resolve(process.cwd(), process.env.DB_PATH ?? "data/db.json")) {
     this.reload();
   }
@@ -97,7 +99,21 @@ export class JsonStore implements Store {
     if (m === this.stamp) return false;
     this.db = { ...empty(), ...JSON.parse(readFileSync(this.path, "utf8")) };
     this.stamp = m;
+    this.onChange?.();
     return true;
+  }
+  /** True once there is a file on disk. A fresh server starts without one and fills it from the hosted copy. */
+  exists() {
+    return existsSync(this.path);
+  }
+  /** Everything, read-only. */
+  dump(): Readonly<Db> {
+    return this.db;
+  }
+  /** Swap in a whole database (a fresh server restoring from the hosted copy). */
+  replace(db: Db) {
+    this.db = { ...empty(), ...db };
+    this.flush();
   }
   // Write to a temp file and rename, so a crash mid-write can't leave half a database.
   private flush() {
@@ -106,6 +122,7 @@ export class JsonStore implements Store {
     writeFileSync(tmp, JSON.stringify(this.db));
     renameSync(tmp, this.path);
     this.stamp = statSync(this.path).mtimeMs;
+    this.onChange?.();
   }
   user(id: string): User {
     return this.db.users[id] ?? { id, facts: [], pending: [], joined: new Date().toISOString() };

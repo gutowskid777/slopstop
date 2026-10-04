@@ -62,6 +62,21 @@ npm run stop             # ends it (it refuses to run twice: two copies would bo
 On Photon's shared line a number has to be registered before the agent can talk to it. The **Text it** box on the
 map does that and hands back a link that opens Messages, already addressed, with the first text started.
 
+## The live server
+
+SlopStop runs 24/7 on a small Google Cloud machine (free tier) at https://slopstop.ink. Caddy in front does HTTPS;
+the app is the same `src/main.ts`. The data is on the server's disk and copied to Firestore within a second of every
+change (`src/mirror.ts`), so a new machine restores itself.
+
+```bash
+npm run deploy                 # ships the last commit, restarts, reads the version back from slopstop.ink/api/health
+npm run deploy -- <commit>     # roll back to an older commit
+gcloud compute ssh slopstop --zone us-east1-b --command "journalctl -u slopstop -f"    # live log
+```
+
+Keys live only on the server, in `/etc/slopstop/env`. `deploy/setup.sh` built the machine once.
+Two copies on one Photon line both hear every text: `ONLY_FROM` / `IGNORE_FROM` split who each one answers.
+
 No phone handy:
 
 ```bash
@@ -85,6 +100,8 @@ real number gets a real iMessage.
 | `src/photon.ts` | Photon's management API: register a number, get the link that opens Messages. |
 | `src/server.ts` | The map, the graph, live updates, the join step. |
 | `src/store.ts` | A JSON file behind a `Store` interface. |
+| `src/mirror.ts` | On the server: copies every change to Firestore, restores a fresh machine from it. |
+| `deploy/` | The server: one-time setup, the service, Caddy, and `npm run deploy`. |
 
 ## Working on it as a teammate
 

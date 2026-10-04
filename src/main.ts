@@ -8,11 +8,18 @@ import { handle, type Out } from "./core.js";
 import { online as photonOnline } from "./photon.js";
 import { startServer, type Line } from "./server.js";
 import { JsonStore } from "./store.js";
+import { Mirror } from "./mirror.js";
 
 const mapOnly = process.argv.includes("--map-only");
 const mapUrl = process.env.MAP_URL;
 const store = new JsonStore();
 let agent: Awaited<ReturnType<typeof startAgent>> | undefined;
+let lineUp = false;
+const started = new Date().toISOString();
+
+// On the server the data also lives in Firestore. A fresh machine restores from it before the port opens.
+const mirror = process.env.FIRESTORE_PROJECT ? new Mirror(store) : undefined;
+await mirror?.boot();
 
 // `npm run try` lands here when this process is up: a builder played from the terminal, inside the live
 // process. Real phones still get real iMessages; the played builder's side comes back as a transcript.
@@ -42,7 +49,16 @@ const ping = async (to: string, text: string) => {
   await agent.direct(to, [{ type: "text", text }]);
 };
 
-const web = startServer({ store, port: Number(process.env.PORT ?? 1290), play, ping });
+const status = () => ({
+  version: process.env.APP_VERSION ?? "dev",
+  started,
+  line: mapOnly ? "off" : lineUp ? "up" : "down",
+  answers: process.env.ONLY_FROM ? "test numbers only" : "everyone",
+  ideas: store.mapIdeas().filter((i) => !i.sample).length,
+  firestore: mirror ? mirror.status : "off",
+});
+
+const web = startServer({ store, port: Number(process.env.PORT ?? 1290), play, ping, status });
 
 // The port is the lock: only connect to the line once we know we are the only copy running.
 await web.ready;
@@ -56,6 +72,8 @@ if (mapOnly || !photonOnline()) {
   const stop = async () => {
     stopping = true;
     await agent?.stop();
+    // The last write reaches Firestore before the process goes.
+    await Promise.race([mirror?.settle(), new Promise((r) => setTimeout(r, 8_000))]);
     process.exit(0);
   };
   process.once("SIGINT", stop);
@@ -64,8 +82,10 @@ if (mapOnly || !photonOnline()) {
   for (let restarts = 0; !stopping; restarts++) {
     try {
       agent = await startAgent({ store, mapUrl, changed: web.broadcast, offline });
+      lineUp = true;
       console.log(`agent up on Photon project "${agent.name}", waiting for texts${restarts ? ` (reconnect ${restarts})` : ""}`);
       await agent.done;
+      lineUp = false;
       await agent.stop().catch(() => {});
     } catch (err) {
       console.error(`agent could not connect: ${String((err as Error)?.message ?? err).slice(0, 200)}`);

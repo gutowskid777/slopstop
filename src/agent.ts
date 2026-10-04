@@ -21,6 +21,14 @@ type Lane = { texts: string[]; image?: BrainContext["image"]; space: Space; last
 /** A handle a real iMessage can reach. Anything else ("alex") is a builder being played from the terminal. */
 export const reachable = (handle: string) => /^\+\d{7,15}$/.test(handle) || handle.includes("@");
 
+// Two copies on one line both hear every text. While one is being proven (the move to a server), each answers only
+// its own people: ONLY_FROM on the new one, IGNORE_FROM on the old one, same handles. Comma-separated.
+const handles = (v?: string) => new Set((v ?? "").split(",").map((h) => h.trim()).filter(Boolean));
+const ONLY = handles(process.env.ONLY_FROM);
+const IGNORE = handles(process.env.IGNORE_FROM);
+/** This copy answers this person. */
+export const ours = (handle: string) => (!ONLY.size || ONLY.has(handle)) && !IGNORE.has(handle);
+
 export async function startAgent(opts: {
   store: JsonStore;
   mapUrl?: string;
@@ -72,8 +80,9 @@ export async function startAgent(opts: {
 
   /** Message someone on their own thread with the agent, whoever started the turn. */
   const direct = async (to: string, out: Out[]) => {
-    for (const o of out) console.log(`${stamp()} -> ${mask(to)}: ${o.type === "text" ? o.text.replace(/\n/g, " / ") : `[${o.type}]`}`);
     if (!reachable(to)) return opts.offline?.(to, out);
+    if (!ours(to)) return console.log(`${stamp()} -> ${mask(to)}: held, the other copy answers them`);
+    for (const o of out) console.log(`${stamp()} -> ${mask(to)}: ${o.type === "text" ? o.text.replace(/\n/g, " / ") : `[${o.type}]`}`);
     const dm = await im.space.create(await im.user(to));
     await deliver(dm, out);
   };
@@ -132,7 +141,7 @@ export async function startAgent(opts: {
         seen.add(message.id);
         if (seen.size > 5000) seen.delete(seen.values().next().value!);
         const sender = message.sender?.id;
-        if (!sender || imessage(space).type === "group") continue;
+        if (!sender || imessage(space).type === "group" || !ours(sender)) continue;
         const c = message.content;
         if (c.type === "text") {
           console.log(`${stamp()} <- ${mask(sender)}: ${c.text.replace(/\n/g, " / ")}`);

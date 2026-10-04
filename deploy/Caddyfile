@@ -1,0 +1,14 @@
+# The front door on the server. Caddy gets and renews the HTTPS certificate on its own once slopstop.ink points here.
+slopstop.ink {
+	# The test-only endpoints never leave the machine.
+	@dev path /api/dev/*
+	respond @dev 404
+	# The live map stream stays uncompressed, so each update lands the moment it is sent.
+	@zip not path /api/events
+	encode @zip zstd gzip
+	reverse_proxy 127.0.0.1:1290
+}
+
+www.slopstop.ink {
+	redir https://slopstop.ink{uri} permanent
+}
