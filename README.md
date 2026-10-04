@@ -79,3 +79,11 @@ real number gets a real iMessage.
 | `src/photon.ts` | Photon's management API: register a number, get the link that opens Messages. |
 | `src/server.ts` | The map, the graph, live updates, the join step. |
 | `src/store.ts` | A JSON file behind a `Store` interface. |
+
+## Working on it as a teammate
+
+- Work on your own branch (`git switch -c rithik/<thing>`), push it, open a pull request. Never push straight to `main`.
+- **Never run the live agent with the Photon keys on a second machine.** Two copies would both answer every text.
+  Without a `.env` everything runs on the offline stub: `npm run try -- "an idea"` and `npm run seed && npm run map`.
+- Your own free Gemini key (aistudio.google.com) in `.env` as `GEMINI_API_KEY` gives real scores locally. Nothing else.
+- `npm test` and `npx tsc --noEmit` must pass before a pull request.
