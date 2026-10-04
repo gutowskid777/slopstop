@@ -36,11 +36,12 @@ A photo of a whiteboard works as an idea. A thumbs-up on the intro question coun
 
 ## The map
 
-`/` is the idea map, at night: the card in the middle is where the texts come in, and wires of light run out
-to every category and on to every smaller one, like signals through a net of neurons. Every idea is a dot at the
-end of its wire. **A gold wire carries an idea worth building** (70 and up). Tap a category to read its ideas.
-It updates the moment a text is scored. Titles and scores only, never who. A ringed white dot was texted in; the
-rest are samples. `/tree.html` and `/lines.html` are two earlier looks, kept for comparison.
+`/` is the idea tree, at night. One trunk, a dozen big branches, smaller branches off those, and every idea is a
+leaf. You zoom: the whole tree shows only the big branches, tap one and it becomes the trunk of its own tree, tap
+a smaller branch to read its ideas. **A glowing fruit is an idea worth building** (70 and up), a green leaf is one
+to sharpen, a gray leaf is one to drop. A new text grows its leaf the moment it is scored and the tree zooms to it.
+Titles and scores only, never who. A white blossom marks an idea that was texted in.
+`/night.html` (wires of light) and `/lines.html` (the first line map) are earlier looks, kept for comparison.
 
 `/graph` is the score itself: problem against fix, with two pins to drag.
 
