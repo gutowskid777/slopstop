@@ -151,6 +151,7 @@
       k.geo = { side, T, ay: Math.min(baseY - U * 0.14, T.y + reach * 0.62 + U * 0.05) };
     });
     const trunkH = baseY - Math.min(...kids.map((k) => k.geo.ay));
+    const leader = kids.reduce((a, b) => (b.geo.ay < a.geo.ay ? b : a)); // the branch that carries the trunk on
     const lean = (u) => (Math.sin(u * Math.PI * 1.2) * 15 - u * 8) * s * (oneSided ? 0.4 : 1);
     const at = (y) => {
       const u = Math.max(0, Math.min(1, (baseY - y) / trunkH));
@@ -185,7 +186,7 @@
       }
       // An idea that was really texted in carries a white blossom, so it is plainly not a sample.
       if (!idea.sample) {
-        const R = Math.max(8 * s, len * 0.36), bloom = svg("g", { class: `bloom${idea.id === landing ? " landing" : ""}` });
+        const R = Math.max(11.5 * s, len * 0.36), bloom = svg("g", { class: `bloom${idea.id === landing ? " landing" : ""}` });
         for (let p = 0; p < 5; p++) {
           const turn = -Math.PI / 2 + (p * Math.PI * 2) / 5;
           bloom.append(svg("circle", { class: "petal", cx: r1(x + Math.cos(turn) * R * 0.54), cy: r1(y + Math.sin(turn) * R * 0.54), r: r1(R * 0.46) }));
@@ -223,9 +224,9 @@
         24,
       );
       const last = pts.length - 1;
-      const w0 = m.level === 2 ? Math.max(3.5 * s, trunkW * 0.34) : Math.min(root.w * 0.72, Math.max(5 * s, trunkW * 0.42 * Math.sqrt(k.count / most) + 3 * s));
+      const w0 = k === leader ? root.w : m.level === 2 ? Math.max(3.5 * s, trunkW * 0.34) : Math.min(root.w * 0.72, Math.max(5 * s, trunkW * 0.42 * Math.sqrt(k.count / most) + 3 * s));
       const g = svg("g", { class: `kid${k.idea && k.idea.id === picked ? " on" : ""}`, "data-k": i });
-      g.append(svg("path", { class: "bark", d: limb(pts, w0, Math.max(1.5 * s, w0 * 0.1), 0.55) }));
+      g.append(svg("path", { class: "bark", d: limb(pts, w0, Math.max(1.5 * s, w0 * 0.1), k === leader ? 0 : 0.55) }));
       const dir = heading(pts, last);
       const puffs = [];
       let spot = T; // where the name goes: just past the leaves

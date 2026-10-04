@@ -63,7 +63,7 @@ a { color: inherit; }
 .key .k-build svg { fill: var(--fruit); stroke: var(--fruit-edge); stroke-width: 1.2; }
 .key .k-sharp svg { fill: var(--leaf-b); }
 .key .k-drop svg { fill: var(--dry); }
-.key .k-real svg { fill: #fff; stroke: #9fb894; stroke-width: 1; }
+.key .k-real svg { fill: #fff; stroke: #6f9a6c; stroke-width: 1.1; }
 .key .k-real svg .heart { fill: var(--fruit); stroke: var(--fruit-edge); }
 .key .k-how { margin-top: 2px; }
 .key .k-how a { color: var(--ink); font-weight: 700; }
@@ -124,7 +124,7 @@ a { color: inherit; }
 .lf.sharp.v2 { fill: var(--leaf-c); }
 .lf.drop { fill: var(--dry); }
 .lf.build { fill: var(--fruit); stroke: var(--fruit-edge); stroke-width: 1; }
-.petal { fill: #fff; stroke: #9fb894; stroke-width: 1; }
+.petal { fill: #fff; stroke: #6f9a6c; stroke-width: 1.2; }
 .heart { fill: var(--fruit); stroke: var(--fruit-edge); stroke-width: 1; }
 .kid.on .lf { stroke: var(--ink); stroke-width: 2.6; vector-effect: non-scaling-stroke; }
 .ping { fill: none; stroke: var(--ink); stroke-width: 2; transform-box: fill-box; transform-origin: center; animation: ping 2.2s ease-out infinite; }
