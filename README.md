@@ -89,3 +89,16 @@ real number gets a real iMessage.
   Without a `.env` everything runs on the offline stub: `npm run try -- "an idea"` and `npm run seed && npm run map`.
 - Your own free Gemini key (aistudio.google.com) in `.env` as `GEMINI_API_KEY` gives real scores locally. Nothing else.
 - `npm test` and `npx tsc --noEmit` must pass before a pull request.
+
+## Working on the design
+
+The whole site is three files in `public/` and no build step: save, refresh.
+
+- `map.css`: the colors are the tokens at the top (white, ink, one red). Red means "build it" and nothing else.
+- `map.js`: `drawWide` lays out the laptop map (card in the middle, trunks to both sides), `drawTall` the phone
+  (one trunk after another). Both draw one line per idea with `wire` and one row per idea with `leaf`.
+- `index.html`: the card, the key, the example texts and the card for one idea.
+- `graph.html`: the "how the score works" page, with its own styles in the same palette.
+
+To look at it without the agent or any keys: `npm run seed && npm run map`, then http://localhost:1290.
+Add `?static` to the address to skip the opening motion (for screenshots). Check a phone width before a pull request.
