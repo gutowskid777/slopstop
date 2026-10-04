@@ -125,21 +125,22 @@
     const top = narrow ? 74 : 78, baseY = H - (narrow ? 26 : 40), U = baseY - top, cx = W / 2;
     const step = (U * 0.72) / n; // how far apart two neighbors leave the trunk
     const labelW = m.level === 2 ? Math.max(108, Math.min(250, W * 0.21)) : Math.max(92, Math.min(190, W * 0.15));
-    const leafLen = m.level === 0 ? 15.5 * s : m.level === 1 ? Math.max(11 * s, Math.min(31 * s, step * 0.62)) : Math.max(20 * s, Math.min(44 * s, step * 1.05));
+    const leafLen = m.level === 0 ? 15.5 * s : m.level === 1 ? Math.max(11 * s, Math.min(31 * s, step * 0.62)) : Math.max(20 * s, Math.min(48 * s, step * 1.05));
     // How far the leaves reach past the end of a branch.
     const bush = m.level === 0 ? Math.max(24 * s, Math.min(60 * s, step * 1.1)) : m.level === 1 ? leafLen * 1.25 : leafLen;
     // Zoomed in, a branch is drawn compact: shorter wood, names close by.
-    const rx = Math.max(54, Math.min(cx - labelW - bush - (narrow ? 12 : 26), [9999, 440, 330][m.level] * s));
-    const trunkW = [52, 36, 24][m.level] * s;
+    const rx = Math.max(54, Math.min(cx - labelW - bush - (narrow ? 12 : 26), [9999, 430, 290][m.level] * s));
+    const trunkW = [52, 36, 26][m.level] * s * (narrow ? 0.74 : 1);
     const most = Math.max(...kids.map((k) => k.count));
     view.style.setProperty("--fn", `${r1(m.level === 2 ? Math.max(13, Math.min(18, 17 * s + 1)) : Math.max(14, Math.min(23, 21 * s)))}px`);
     view.style.setProperty("--fc", `${r1(Math.max(12, Math.min(15, 14.5 * s)))}px`);
 
     // Branches leave the trunk one after another, left then right, the way they do on a real tree.
+    const low = narrow ? 0.2 : 0.3; // how far up the first one ends
     kids.forEach((k, i) => {
       const t = (i + 0.5) / n, side = i % 2 ? 1 : -1;
       const reach = rx * (1 - 0.74 * Math.pow(t, 1.9)) * (1 + sway(`${k.key}r`, 0.05));
-      const T = { x: cx + side * reach, y: baseY - U * (0.3 + 0.67 * t) + sway(`${k.key}y`, step * 0.16) };
+      const T = { x: cx + side * reach, y: baseY - U * (low + (0.97 - low) * t) + sway(`${k.key}y`, step * 0.16) };
       k.geo = { side, T, ay: Math.min(baseY - U * 0.17, T.y + reach * 0.3 + U * 0.06) };
     });
     const trunkH = baseY - Math.min(...kids.map((k) => k.geo.ay));
@@ -171,6 +172,11 @@
       } else {
         g.append(svg("path", { class: `${cls} v${hash(idea.id) % 3}`, d: LEAF, transform: `translate(${r1(x)} ${r1(y)}) rotate(${r1((a * 180) / Math.PI)}) scale(${r1(len)})` }));
       }
+      if (m.level) {
+        const r = len * (m.level === 2 ? 0.92 : 0.8);
+        crowns.append(svg("circle", { class: "crown", cx: r1(mid.x), cy: r1(mid.y), r: r1(r) }));
+        lights.append(svg("circle", { class: "crown light", cx: r1(mid.x - r * 0.18), cy: r1(mid.y - r * 0.22), r: r1(r * 0.62) }));
+      }
       // The newest idea that was texted in keeps a slow ring, so it can be found at any zoom.
       if (idea.id === data.latest) g.append(svg("circle", { class: "ping", cx: r1(mid.x), cy: r1(mid.y), r: r1(Math.max(7, len * 0.5)) }));
       return mid;
@@ -200,7 +206,7 @@
         22,
       );
       const last = pts.length - 1;
-      const w0 = m.level === 2 ? Math.max(3.5 * s, trunkW * 0.3) : Math.min(root.w * 0.8, Math.max(5 * s, trunkW * 0.36 * Math.sqrt(k.count / most) + 3 * s));
+      const w0 = m.level === 2 ? Math.max(3.5 * s, trunkW * 0.38) : Math.min(root.w * 0.8, Math.max(5 * s, trunkW * 0.36 * Math.sqrt(k.count / most) + 3 * s));
       const g = svg("g", { class: "kid", "data-k": i });
       g.append(svg("path", { class: "bark", d: limb(pts, w0, Math.max(1.8 * s, w0 * 0.16)) }));
       const dir = heading(pts, last);
@@ -240,8 +246,8 @@
       const tag = node("button", `tag ${side < 0 ? "l" : "r"}`);
       tag.type = "button";
       tag.dataset.k = i;
-      // At the top of the tree a leaf points up, not out, so the name sits beside it rather than past it.
-      const off = m.level === 2 ? leafLen * (0.5 * Math.abs(Math.cos(dir)) + 0.25 * Math.abs(Math.sin(dir))) + 9 : bush + (narrow ? 5 : 12);
+      // The name sits just past the leaves. For one idea, that is just past its own patch of crown.
+      const off = m.level === 2 ? leafLen * 0.92 + (narrow ? 5 : 9) : bush + (narrow ? 5 : 12);
       tag.style.top = `${r1(m.level === 2 ? spot.y : T.y - 4)}px`;
       if (side < 0) tag.style.right = `${r1(W - (spot.x - off))}px`;
       else tag.style.left = `${r1(spot.x + off)}px`;

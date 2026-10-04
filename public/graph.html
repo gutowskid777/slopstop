@@ -6,10 +6,10 @@
 <title>How the score works</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&display=swap" rel="stylesheet">
 <style>
-  /* The same white paper, ink and one red as the map. Red is the corner worth building in. */
-  :root { --paper: #fff; --wash: #f1f2f4; --ink: #101114; --soft: #686c75; --red: #e4002b; --font: "Archivo", "Helvetica Neue", Arial, sans-serif; }
+  /* The same pale paper, sage and gold as the tree. Gold is the corner worth building in. */
+  :root { --paper: #f6f8f1; --wash: #dce4d2; --ink: #22332a; --soft: #6a786e; --fruit: #f2b53b; --font: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif; }
   * { box-sizing: border-box; margin: 0; }
   html, body { height: 100%; }
   body { background: var(--paper); color: var(--ink); font-family: var(--font); font-size: 17px; line-height: 1.4; -webkit-font-smoothing: antialiased; }
@@ -18,8 +18,8 @@
   :focus-visible { outline: 2.5px solid var(--ink); outline-offset: 2px; }
   .shell { display: grid; grid-template-columns: minmax(300px, 372px) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 100dvh; overflow: hidden; }
   .panel { display: flex; flex-direction: column; gap: 16px; min-height: 0; overflow-y: auto; padding: 22px 26px 18px; border-right: 2px solid var(--wash); }
-  .mark { align-self: flex-start; font-weight: 800; font-stretch: 112%; font-size: 23px; letter-spacing: -0.015em; text-decoration: none; }
-  h1 { margin-top: 4px; font-weight: 800; font-stretch: 88%; letter-spacing: -0.025em; }
+  .mark { align-self: flex-start; font-weight: 800; font-size: 30px; line-height: 1; letter-spacing: -0.035em; text-decoration: none; }
+  h1 { margin-top: 4px; font-weight: 800; letter-spacing: -0.035em; }
   .foot { margin-top: auto; padding-top: 10px; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14.5px; color: var(--soft); }
   .foot a { font-weight: 800; color: var(--ink); white-space: nowrap; }
   .panel h1 { font-size: clamp(38px, 3.5vw, 52px); line-height: 0.98; }
@@ -27,12 +27,12 @@
   /* The one knob in the score. "half" is what the agent uses; the other two are there to compare. */
   .weigh { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 15.5px; font-weight: 700; color: var(--soft); }
   .weigh span { flex-basis: 100%; }
-  .weigh button { height: 38px; padding: 0 12px; font-weight: 800; font-size: 15.5px; background: #fff; border: 2px solid var(--ink); border-radius: 10px; cursor: pointer; }
+  .weigh button { height: 38px; padding: 0 12px; font-weight: 800; font-size: 15.5px; background: #fff; border: 2px solid var(--ink); border-radius: 12px; cursor: pointer; }
   .weigh button[aria-pressed="true"] { background: var(--ink); color: #fff; }
   .pins { display: grid; gap: 16px; margin-top: 6px; }
   .pin { display: grid; grid-template-columns: 36px auto 1fr; column-gap: 12px; align-items: center; }
   .pin-letter { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 19px; color: #fff; background: var(--ink); }
-  .pin.b .pin-letter { background: var(--paper); color: var(--ink); box-shadow: inset 0 0 0 3px var(--ink); }
+  .pin.b .pin-letter { background: #fff; color: var(--ink); box-shadow: inset 0 0 0 3px var(--ink); }
   .pin-score { font-weight: 800; font-size: 60px; line-height: 0.86; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; min-width: 1.45em; }
   .pin-what { font-weight: 800; font-size: 17px; line-height: 1.15; }
   .pin-math { font-size: 16px; color: var(--soft); font-weight: 700; margin-top: 3px; font-variant-numeric: tabular-nums; }
@@ -42,10 +42,10 @@
   .plot { position: relative; min-width: 0; min-height: 0; display: grid; place-items: center; padding: 14px 18px; }
   #graph { display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
   #graph text { font-family: var(--font); fill: var(--ink); }
-  .low { fill: #eceef1; }
-  .mid { fill: #cdd0d7; }
-  .high { fill: var(--red); }
-  .dead { fill: #fff; opacity: 1; }
+  .low { fill: #ecf1e4; }
+  .mid { fill: #cfe0c6; }
+  .high { fill: var(--fruit); }
+  .dead { fill: var(--paper); opacity: 1; }
   .iso { fill: none; stroke: var(--ink); stroke-opacity: 0.16; stroke-width: 1.2; }
   .iso.call { stroke-opacity: 0.6; stroke-width: 1.75; }
   .iso-num { font-size: 15px; font-weight: 700; fill-opacity: 0.55; }
@@ -53,17 +53,17 @@
   .axis { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
   .axis tspan { font-size: 16.5px; font-weight: 600; fill: var(--soft); letter-spacing: 0; }
   .end { font-size: 16.5px; font-weight: 600; fill: var(--soft) !important; }
-  .zone-name { font-size: 23px; font-weight: 800; letter-spacing: -0.01em; paint-order: stroke; stroke: #fff; stroke-width: 6; stroke-linejoin: round; }
+  .zone-name { font-size: 23px; font-weight: 800; letter-spacing: -0.01em; paint-order: stroke; stroke: var(--paper); stroke-width: 6; stroke-linejoin: round; }
   .zone-name.quiet { font-size: 17px; font-weight: 800; }
-  .idea { stroke: #fff; stroke-width: 2; }
-  .idea.sample { fill: #fff; stroke: var(--ink); stroke-width: 2; }
+  .idea { fill: var(--ink); stroke: var(--paper); stroke-width: 2; }
+  .idea.sample { fill: var(--ink); fill-opacity: 0.2; stroke: none; }
   .knob { cursor: grab; }
   .knob:active { cursor: grabbing; }
   .knob circle { stroke: #fff; stroke-width: 3.5; }
   .knob.b circle { fill: #fff; stroke: var(--ink); }
   .knob.b text { fill: var(--ink) !important; }
   .knob text { fill: #fff !important; font-weight: 800; font-size: 21px; text-anchor: middle; pointer-events: none; }
-  .knob .tag { fill: var(--ink) !important; font-size: 26px; text-anchor: start; paint-order: stroke; stroke: #fff; stroke-width: 6; stroke-linejoin: round; }
+  .knob .tag { fill: var(--ink) !important; font-size: 26px; text-anchor: start; paint-order: stroke; stroke: var(--paper); stroke-width: 6; stroke-linejoin: round; }
   .knob:focus-visible { outline: none; }
   .knob:focus-visible circle { stroke: var(--ink); }
 
@@ -97,10 +97,10 @@
       <div class="pin b"><span class="pin-letter">B</span><span class="pin-score" id="b-score">65</span><div><p class="pin-what" id="b-what"></p><p class="pin-math" id="b-math"></p></div></div>
     </div>
     <p class="gap" id="gap"></p>
-    <p class="hint">Drag A and B. The dots are the ideas on the map.</p>
+    <p class="hint">Drag A and B. The circles are the ideas on the tree: bigger means more of them, solid means texted in.</p>
     <footer class="foot">
       <p>Fix is what it costs to adopt: finding it, learning it, the habit, paying, upkeep.</p>
-      <a href="/">The map</a>
+      <a href="/">The tree</a>
     </footer>
   </section>
   <section class="plot" id="plot" aria-label="Problem against fix">
@@ -171,7 +171,7 @@
       return pts.map(([f, p]) => `${X(f)},${Y(p)}`).join(" ");
     };
     const line = (c) => `M${X(0)},${Y(c / 10)} L${X(edge(c)[0])},${Y(edge(c)[1])}`;
-    // The same three bands as the map: lowland, the middle from 40, summits from 70.
+    // The same three calls as the tree: drop it, sharpen it from 40, build it from 70.
     svg.append(el("rect", { class: "low", x: m.l, y: m.t, width: w, height: h }));
     svg.append(el("polygon", { class: "mid", points: region(40) }));
     svg.append(el("polygon", { class: "high", points: region(70) }));
@@ -196,16 +196,26 @@
     svg.append(el("text", { class: "end", x: m.l, y: side - 6 }, "nothing to learn"));
     svg.append(el("text", { class: "end", x: m.l + w, y: side - 6, "text-anchor": "end" }, "new habit, pay, upkeep"));
 
-    // The ideas on the map. Integers pile up, so fan each pile out a little.
+    // The ideas on the tree. Ratings are whole numbers, so many share a spot: samples become one circle
+    // that grows with how many there are, and each idea that was texted in is a solid dot on top.
     const piles = new Map();
     for (const i of ideas) {
       const key = `${i.problem},${i.fix}`;
-      const n = piles.get(key) ?? 0;
-      piles.set(key, n + 1);
-      const ang = n * 2.4, r = n ? 8 + n * 2.5 : 0;
-      const c = el("circle", { class: `idea${i.sample ? " sample" : ""}`, cx: X(i.fix) + Math.cos(ang) * r, cy: Y(i.problem) + Math.sin(ang) * r, r: 6.5, fill: "#101114" });
-      c.append(el("title", {}, `${i.title}: ${i.score}`));
-      svg.append(c);
+      const pile = piles.get(key) ?? { p: i.problem, f: i.fix, samples: 0, real: [] };
+      if (i.sample) pile.samples++;
+      else pile.real.push(i);
+      piles.set(key, pile);
+    }
+    for (const pile of piles.values()) {
+      if (pile.samples) svg.append(el("circle", { class: "idea sample", cx: X(pile.f), cy: Y(pile.p), r: 3.5 + 3 * Math.sqrt(pile.samples) }));
+    }
+    for (const pile of piles.values()) {
+      pile.real.forEach((i, n) => {
+        const ang = n * 2.4, r = n ? 9 + n * 2.5 : 0;
+        const c = el("circle", { class: "idea", cx: X(pile.f) + Math.cos(ang) * r, cy: Y(pile.p) + Math.sin(ang) * r, r: 6.5 });
+        c.append(el("title", {}, `${i.title}: ${i.score}`));
+        svg.append(c);
+      });
     }
 
     // Zone names go on last so the ideas never sit on top of the words.
@@ -220,7 +230,7 @@
     for (const k of ["a", "b"]) {
       const { p, f } = pins[k];
       const g = el("g", { class: `knob ${k}`, tabindex: 0, role: "slider", "aria-label": `Idea ${k.toUpperCase()}: problem ${p}, fix ${f}, score ${score(p, f)}. Arrow keys move it.`, "data-k": k, transform: `translate(${X(f)} ${Y(p)})` });
-      g.append(el("circle", { r: 21, fill: "#101114" }));
+      g.append(el("circle", { r: 21, fill: "#22332a" }));
       g.append(el("text", { y: 7.5 }, k.toUpperCase()));
       g.append(el("text", { class: "tag", x: f >= 8 ? -70 : 30, y: 9 }, score(p, f)));
       svg.append(g);

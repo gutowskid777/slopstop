@@ -36,12 +36,15 @@ A photo of a whiteboard works as an idea. A thumbs-up on the intro question coun
 
 ## The map
 
-`/` is the branch map. The dark card in the middle is where the texts come in, and every idea is one line: it
-leaves the card bundled with its trunk, splits off with its branch and ends at the idea. **A red line is an idea
-worth building** (70 and up), black is one to sharpen, gray is one to drop. It updates the moment a text is scored.
-Titles and scores only, never who. Hollow dots are samples.
+`/` is the idea tree. One trunk, a few big branches, smaller branches off those, and every idea is a leaf.
+You zoom: the whole tree shows only the big branches, tap one and it becomes the trunk of its own tree, tap a
+smaller branch to read its ideas. **A fruit is an idea worth building** (70 and up), a green leaf is one to
+sharpen, a dry leaf is one to drop. A new text grows its leaf the moment it is scored and the tree zooms to it.
+Titles and scores only, never who. A leaf with a dark outline was texted in; the rest are samples.
 
 `/graph` is the score itself: problem against fix, with two pins to drag.
+
+`/lines.html` is the earlier line map, kept for comparison (`npm run seed -- --small` restores its short list).
 
 ## Run it
 
@@ -49,7 +52,7 @@ Titles and scores only, never who. Hollow dots are samples.
 npm i
 cp .env.example .env     # Photon + Gemini keys
 npm run doctor           # checks the brain, the line and who can text it
-npm run seed             # sample ideas so the map has branches before the first text
+npm run seed             # sample ideas so the tree is full before the first text
 npm start                # the iMessage agent + the map on http://localhost:1290
 npm run demo             # the same, and keeps the Mac awake while it runs
 npm run stop             # ends it (it refuses to run twice: two copies would both answer every text)
@@ -94,11 +97,13 @@ real number gets a real iMessage.
 
 The whole site is three files in `public/` and no build step: save, refresh.
 
-- `map.css`: the colors are the tokens at the top (white, ink, one red). Red means "build it" and nothing else.
-- `map.js`: `drawWide` lays out the laptop map (card in the middle, trunks to both sides), `drawTall` the phone
-  (one trunk after another). Both draw one line per idea with `wire` and one row per idea with `leaf`.
-- `index.html`: the card, the key, the example texts and the card for one idea.
+- `map.css`: the colors are the tokens at the top (pale paper, taupe bark, sage leaves, gold fruit). Gold means
+  "build it" and nothing else.
+- `map.js`: `model` decides what one zoom level shows, `build` draws it as a tree (the same code for all three
+  levels and for the phone), `draw` moves between levels. Branch shapes come from `limb`, leaves from `leaf`.
+- `index.html`: the side panel (the invitation, the key, the example texts, the card for one idea) and the stage.
 - `graph.html`: the "how the score works" page, with its own styles in the same palette.
 
 To look at it without the agent or any keys: `npm run seed && npm run map`, then http://localhost:1290.
-Add `?static` to the address to skip the opening motion (for screenshots). Check a phone width before a pull request.
+Add `?static` to the address to skip the motion (for screenshots), and `#/money/saving` to land on a branch.
+Check a phone width before a pull request.

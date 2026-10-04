@@ -174,7 +174,7 @@ a { color: inherit; }
   .top { order: 1; padding: 16px 18px 0; }
   .hub { order: 2; padding: 0 18px; }
   .hub h1 { font-size: 44px; }
-  .stage { order: 3; height: min(660px, 82dvh); margin-top: 6px; }
+  .stage { order: 3; height: min(600px, 76dvh); margin-top: 6px; }
   .where { top: 12px; left: 18px; right: 18px; display: block; }
   .crumbs { font-size: 15px; }
   .crumbs .now { font-size: 21px; }
