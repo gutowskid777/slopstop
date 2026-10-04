@@ -8,7 +8,8 @@
 
 @media (min-width: 901px) {
   .clean .shell { grid-template-columns: 470px minmax(0, 1fr); }
-  .clean .panel { position: relative; justify-content: center; gap: 26px; padding: 0 18px 60px 56px; overflow: visible; }
+  /* The side sits above the tree's drawing, whose ground reaches under it and was swallowing clicks on the key. */
+  .clean .panel { position: relative; z-index: 4; justify-content: center; gap: 26px; padding: 0 18px 60px 56px; overflow: visible; }
   .clean .top { position: absolute; top: 30px; left: 56px; }
   .clean .mark { font-size: 24px; }
   .clean .hub h1 { font-size: 54px; white-space: nowrap; }
