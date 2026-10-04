@@ -1,6 +1,7 @@
-// The branch map. The dark card in the middle is where the texts come in. Every idea is one line:
-// it leaves the card bundled with its trunk, splits off with its branch and ends at the idea.
-// A red line is an idea worth building, so the whole map reads as "follow the red".
+// The idea tree. One trunk splits into a few big branches, each big branch into smaller ones, and every
+// idea is a leaf. You never read everything at once: tap a branch to zoom into it, tap a smaller branch
+// to read its ideas. Each view is drawn as its own tree, and the branch you tapped becomes the trunk.
+// An idea worth building is a fruit.
 (() => {
   const NS = "http://www.w3.org/2000/svg";
   const CALLS = [
@@ -17,270 +18,341 @@
   };
   const node = (tag, cls, text) => {
     const e = document.createElement(tag);
-    e.className = cls;
+    if (cls) e.className = cls;
     if (text != null) e.textContent = text;
     return e;
   };
-  const r = (n) => Math.round(n * 10) / 10;
-  const tall = () => matchMedia("(max-width: 1259px)").matches;
-  // ?static draws the finished map with no motion (screenshots, slow machines).
+  const r1 = (n) => Math.round(n * 10) / 10;
+  // ?static draws the finished tree with no motion (screenshots, slow machines).
   const still = new URLSearchParams(location.search).has("static") || matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  let data = null;
-  let known = null; // ids already drawn, so only a real arrival animates
-  let picked = null; // the idea someone tapped
-  let held = null; // a trunk or branch someone tapped, kept lit
-  let landing = null;
-  let box = ""; // the sizes at the last draw, so only a real size change redraws
-  let seenRaw = "";
-  let opening = !still; // the first paint grows the lines out of the card, once
-  let spots = new Map(); // id -> { idea, t, b }
-  let partners = new Map(); // id -> ids of ideas whose builders said yes to each other
-  let layers = {};
+  // The same name always bends the same way, so it is the same tree every time it is drawn.
+  const hash = (str) => {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619);
+    return h >>> 0;
+  };
+  const sway = (key, amount) => ((hash(key) % 2000) / 1000 - 1) * amount;
 
-  // Where each trunk and branch was first drawn. A new idea should add a line, not shuffle the map.
-  const seat = new Map(); // trunk name -> which side of the card
-  const rank = new Map(); // trunk or branch -> its place in line
+  let data = null;
+  let known = null; // ids already seen, so only a real arrival moves the tree
+  let picked = null; // the idea someone tapped
+  let landing = null;
+  let seenRaw = "";
+  let box = "";
+  let path = []; // [] the whole tree, [big branch], or [big branch, smaller branch]
+  let shown = null; // what the view on screen was drawn from
+  let current = null; // the view on screen
+  const rank = new Map(); // where each branch was first drawn. A new idea adds a leaf, it does not shuffle the tree.
   const place = (key) => rank.get(key) ?? rank.set(key, rank.size).get(key);
 
-  // On first sight: biggest trunk first, biggest branch first. After that everything keeps its place.
-  // Inside a branch the best idea is always on top.
-  function tree() {
-    const trunks = data.trunks.map((t, ti) => {
-      const branches = t.branches
-        .map((b, bi) => ({ name: b.name, key: `${ti}/${bi}`, ideas: [...b.ideas].sort((a, c) => c.score - a.score || a.at.localeCompare(c.at)) }))
-        .sort((a, c) => c.ideas.length - a.ideas.length || c.ideas[0].score - a.ideas[0].score);
-      return { name: t.name, ti: String(ti), branches, n: branches.reduce((s, b) => s + b.ideas.length, 0) };
-    });
-    trunks.sort((a, c) => c.n - a.n);
-    for (const t of trunks) {
-      place(`t:${t.name}`);
-      for (const b of t.branches) place(`b:${t.name}/${b.name}`);
-      t.branches.sort((a, c) => place(`b:${t.name}/${a.name}`) - place(`b:${t.name}/${c.name}`));
-    }
-    return trunks.sort((a, c) => place(`t:${a.name}`) - place(`t:${c.name}`));
-  }
-
-  // ---- the pieces both layouts draw with
-  function wire(d, idea, t, b, order) {
-    const moving = !still && (opening || idea.id === landing);
-    const p = svg("path", { class: `w ${call(idea.score)[2]}${moving ? " grow" : ""}`, d, "data-i": idea.id, "data-b": b.key, "data-t": t.ti });
-    if (moving) {
-      p.setAttribute("pathLength", 1);
-      if (opening) p.style.animationDelay = `${order * 12}ms`;
-    }
-    layers[call(idea.score)[2]].append(p);
-  }
-  function leaf(idea, t, b, side, order) {
-    const e = node("button", `leaf ${side} ${call(idea.score)[2]} ${idea.sample ? "sample" : "real"}`);
-    e.type = "button";
-    if (idea.id === picked) e.classList.add("on");
-    if (idea.id === data.latest) e.classList.add("here");
-    if (idea.id === landing) e.classList.add("landing");
-    if (opening) {
-      e.classList.add("rise");
-      e.style.animationDelay = `${700 + order * 12}ms`;
-    }
-    e.dataset.i = idea.id;
-    e.dataset.b = b.key;
-    e.dataset.t = t.ti;
-    e.setAttribute("aria-label", `${idea.title}, ${idea.score} out of 100, ${call(idea.score)[1]}`);
-    e.append(node("span", "dot"), node("span", "num", idea.score), node("span", "ttl", idea.title));
-    spots.set(idea.id, { idea, t, b });
-    $("nodes").append(e);
-    return e;
-  }
-  function chip(kind, text, t, b, delay) {
-    const e = node("div", `chip ${kind}${opening ? " rise" : ""}`, text);
-    if (opening) e.style.animationDelay = `${delay}ms`;
-    e.dataset.chip = kind;
-    e.dataset.t = t.ti;
-    if (b) e.dataset.b = b.key;
-    $("nodes").append(e);
-    return e;
-  }
-
-  // ---- wide: the card in the middle, trunks leaving to both sides
-  const BG = 0.45, TG = 1; // the room between branches and between trunks, in rows
-  const span = (t) => t.n + (t.branches.length - 1) * BG;
-  const height = (side) => side.reduce((s, t) => s + span(t), 0) + Math.max(0, side.length - 1) * TG;
-  const bend = (x1, y1, x2, y2) => `C${r((x1 + x2) / 2)},${r(y1)} ${r((x1 + x2) / 2)},${r(y2)} ${r(x2)},${r(y2)}`;
-
-  function drawWide(trunks, canvas, stage) {
-    const W = stage.clientWidth, view = stage.clientHeight;
-    // Two sides, as even as they come. A trunk stays on the side it started on.
-    const sides = [[], []];
-    for (const t of trunks) {
-      if (!seat.has(t.name)) seat.set(t.name, height(sides[1]) < height(sides[0]) ? 1 : 0);
-      sides[seat.get(t.name)].push(t);
-    }
-    const rows = Math.max(height(sides[0]), height(sides[1]), 1);
-    const pad = 24;
-    const row = Math.max(19, Math.min(31, (view - pad * 2) / rows));
-    const H = Math.max(view, Math.ceil(rows * row + pad * 2));
-    canvas.style.height = `${H}px`;
-    canvas.style.setProperty("--row", `${r(row)}px`);
-    canvas.style.setProperty("--fs", `${r(Math.max(12.5, Math.min(17, row * 0.66)))}px`);
-    $("wires").setAttribute("width", W);
-    $("wires").setAttribute("height", H);
-
-    // Where the card sits on the canvas. The lines leave from its two sides.
-    const c = canvas.getBoundingClientRect(), h = $("hub").getBoundingClientRect();
-    const hub = { l: h.left - c.left, r: h.right - c.left, y: h.top - c.top + h.height / 2, h: h.height };
-    const most = Math.max(...sides.map((side) => side.reduce((s, t) => s + t.n, 0)), 1);
-    const gap = Math.max(1.4, Math.min(4, (hub.h - 48) / most)); // how far apart two lines run in a bundle
-    canvas.style.setProperty("--sw", `${r(Math.max(1.1, gap - 1))}px`);
-
-    sides.forEach((side, s) => {
-      const dir = s ? 1 : -1;
-      const edge = s ? hub.r : hub.l;
-      const room = (s ? W - hub.r : hub.l) - 18;
-      const leafW = Math.max(132, Math.min(236, room * 0.4));
-      const run = room - leafW - 12;
-      // Names shrink with the room they have, so a smaller laptop never cuts one short.
-      canvas.style.setProperty("--tf", `${r(Math.max(15, Math.min(21, run * 0.057)))}px`);
-      canvas.style.setProperty("--bf", `${r(Math.max(12, Math.min(15, run * 0.041)))}px`);
-      // Leaving the card: a fan, the trunk's name, a fan, the branch's name, a fan, the idea.
-      const x = [-10 / run, 0.26, 0.5, 0.65, 0.88, 1].map((f) => edge + dir * f * run);
-
-      let y = (H - height(side) * row) / 2;
-      side.forEach((t, i) => {
-        if (i) y += TG * row;
-        const first = y;
-        t.branches.forEach((b, j) => {
-          if (j) y += BG * row;
-          b.top = y;
-          y += b.ideas.length * row;
-          b.y = (b.top + y) / 2;
-        });
-        t.y = (first + y) / 2;
-      });
-
-      const n = side.reduce((sum, t) => sum + t.n, 0);
-      let i = 0;
-      for (const t of side) {
-        let j = 0;
-        for (const b of t.branches) {
-          b.ideas.forEach((idea, k) => {
-            const ya = hub.y + (i - (n - 1) / 2) * gap;
-            const yb = t.y + (j - (t.n - 1) / 2) * gap;
-            const yc = b.y + (k - (b.ideas.length - 1) / 2) * gap;
-            const yd = b.top + (k + 0.5) * row;
-            wire(`M${r(x[0])},${r(ya)} ${bend(x[0], ya, x[1], yb)} H${r(x[2])} ${bend(x[2], yb, x[3], yc)} H${r(x[4])} ${bend(x[4], yc, x[5], yd)}`, idea, t, b, i);
-            const e = leaf(idea, t, b, s ? "r" : "l", i);
-            e.style.top = `${r(yd)}px`;
-            e.style.maxWidth = `${r(leafW + 10)}px`;
-            if (s) e.style.left = `${r(x[5] - 5)}px`;
-            else e.style.right = `${r(W - x[5] - 5)}px`;
-            i++;
-            j++;
-          });
-          const e = chip("b", b.name, t, b, 520);
-          e.style.left = `${r((x[3] + x[4]) / 2)}px`;
-          e.style.top = `${r(b.y)}px`;
-          e.style.maxWidth = `${r(Math.abs(x[4] - x[3]) + 40)}px`;
-        }
-        const e = chip("t", t.name, t, null, 260);
-        e.style.left = `${r((x[1] + x[2]) / 2)}px`;
-        e.style.top = `${r(t.y)}px`;
-        e.style.maxWidth = `${r(Math.abs(x[2] - x[1]) + 56)}px`;
-      }
-    });
-  }
-
-  // ---- tall: one trunk after another. Its lines hang down from the name and turn off to each idea.
-  function drawTall(trunks, canvas, stage) {
-    const W = stage.clientWidth;
-    const row = 38, left = 18, gap = 3;
-    const widest = Math.min(16, Math.max(...trunks.map((t) => t.n), 1));
-    const dotX = left + widest * gap + 19;
-    canvas.style.setProperty("--row", `${row}px`);
-    canvas.style.setProperty("--fs", "16.5px");
-    canvas.style.setProperty("--sw", "2px");
-    let y = 6, order = 0;
-    for (const t of trunks) {
-      const name = chip("t", t.name, t, null, 200);
-      name.style.left = `${left - 1}px`;
-      name.style.top = `${y + 15}px`;
-      y += 36;
-      const top = y - 2;
-      const step = Math.min(gap, (dotX - 19 - left) / t.n);
-      let j = 0;
-      for (const b of t.branches) {
-        const tag = chip("b", b.name, t, b, 420);
-        tag.style.left = `${dotX - 5}px`;
-        tag.style.top = `${y + 13}px`;
-        y += 25;
-        for (const idea of b.ideas) {
-          const ly = y + row / 2;
-          // The first idea takes the line nearest the names, so no line ever crosses another.
-          const lx = left + (t.n - 1 - j) * step + step / 2;
-          const turn = Math.min(12, dotX - lx - 5);
-          wire(`M${r(lx)},${top} V${r(ly - turn)} Q${r(lx)},${ly} ${r(lx + turn)},${ly} H${dotX}`, idea, t, b, order);
-          const e = leaf(idea, t, b, "r", order);
-          e.style.top = `${ly}px`;
-          e.style.left = `${dotX - 5}px`;
-          e.style.maxWidth = `${W - dotX - 9}px`;
-          y += row;
-          j++;
-          order++;
-        }
-        y += 5;
-      }
-      y += 20;
-    }
-    canvas.style.height = `${y}px`;
-    $("wires").setAttribute("width", W);
-    $("wires").setAttribute("height", y);
-  }
-
-  const sizeKey = () => (tall() ? `tall/${$("stage").clientWidth}` : `${$("stage").clientWidth}x${$("stage").clientHeight}/${$("hub").offsetHeight}`);
-
-  function render() {
-    const stage = $("stage"), canvas = $("canvas");
-    const trunks = tree();
-    $("empty").hidden = trunks.length > 0;
-    $("nodes").replaceChildren();
-    layers = { drop: svg("g"), sharp: svg("g"), build: svg("g") };
-    $("wires").replaceChildren(layers.drop, layers.sharp, layers.build);
-    spots = new Map();
-    partners = new Map();
-    for (const [a, b] of data.links) {
-      partners.set(a, [...(partners.get(a) ?? []), b]);
-      partners.set(b, [...(partners.get(b) ?? []), a]);
-    }
-    box = sizeKey();
-    canvas.classList.toggle("tall", tall());
-    (tall() ? drawTall : drawWide)(trunks, canvas, stage);
-    sign();
-    rest();
-    landing = null;
-    opening = false;
-  }
-
-  // ---- lighting: one idea, one branch or one trunk stands out and the rest of the map steps back
-  function light(key) {
-    const stage = $("stage");
-    stage.classList.toggle("focus", Boolean(key));
-    if (!key) return void stage.querySelectorAll(".lit").forEach((e) => e.classList.remove("lit"));
-    const kind = key[0], val = key.slice(2);
-    // An idea lights its own line and the names it passes through. If its builder met another, theirs too.
-    const mine = kind === "i" ? [val, ...(partners.get(val) ?? [])].map((id) => spots.get(id)).filter(Boolean) : [];
-    for (const e of stage.querySelectorAll("[data-t]")) {
-      const d = e.dataset;
-      const on =
-        kind === "t" ? d.t === val
-        : kind === "b" ? d.b === val || (d.chip === "t" && d.t === val.split("/")[0])
-        : mine.some((s) => (d.chip === "t" ? d.t === s.t.ti : d.chip === "b" ? d.b === s.b.key : d.i === s.idea.id));
-      e.classList.toggle("lit", on);
-    }
-  }
-  const rest = () => light(picked && spots.has(picked) ? `i:${picked}` : held);
-  const keyOf = (target) => {
-    const n = target.closest?.("[data-t]");
-    if (!n) return null;
-    return n.dataset.i ? `i:${n.dataset.i}` : n.dataset.chip === "b" ? `b:${n.dataset.b}` : `t:${n.dataset.t}`;
+  // ---- where you are, kept in the address so Back zooms out and a link lands on a branch
+  const toHash = (p) => (p.length ? `#/${p.map(encodeURIComponent).join("/")}` : "");
+  const fromHash = () => location.hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(decodeURIComponent);
+  const trunkOf = (name) => data.trunks.find((t) => t.name === name);
+  const fit = (p) => {
+    const t = p[0] && trunkOf(p[0]);
+    if (!t) return [];
+    return p[1] && t.branches.some((b) => b.name === p[1]) ? [p[0], p[1]] : [p[0]];
   };
+  const find = (id) => {
+    for (const t of data?.trunks ?? []) for (const b of t.branches) for (const idea of b.ideas) if (idea.id === id) return { idea, home: [t.name, b.name] };
+    return null;
+  };
+
+  // ---- what one view shows: the branches of the place you are standing
+  function model(p) {
+    const tally = (ideas) => ({ count: ideas.length, real: ideas.filter((i) => !i.sample).length });
+    // On first sight the biggest branch is lowest, like a real tree. After that everything keeps its place.
+    const settle = (kids) => {
+      kids.sort((a, b) => b.count - a.count);
+      for (const k of kids) place(k.key);
+      return kids.sort((a, b) => place(a.key) - place(b.key));
+    };
+    if (!p.length) {
+      return {
+        level: 0,
+        kids: settle(data.trunks.map((t) => ({ key: `t:${t.name}`, name: t.name, go: [t.name], groups: t.branches.map((b) => b.ideas), ...tally(t.branches.flatMap((b) => b.ideas)) }))),
+      };
+    }
+    const t = trunkOf(p[0]);
+    if (p.length === 1) {
+      return { level: 1, kids: settle(t.branches.map((b) => ({ key: `b:${t.name}/${b.name}`, name: b.name, go: [t.name, b.name], groups: [b.ideas], ...tally(b.ideas) }))) };
+    }
+    // The best idea sits highest.
+    const ideas = [...t.branches.find((b) => b.name === p[1]).ideas].sort((a, b) => a.score - b.score || b.at.localeCompare(a.at));
+    return { level: 2, kids: ideas.map((idea) => ({ key: `i:${idea.id}`, idea, count: 1 })) };
+  }
+
+  // ---- drawing
+  const cubic = (a, c1, c2, b, n) =>
+    Array.from({ length: n + 1 }, (_, i) => {
+      const t = i / n, u = 1 - t;
+      return {
+        x: u * u * u * a.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * b.x,
+        y: u * u * u * a.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * b.y,
+      };
+    });
+  const heading = (pts, i) => {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+    return Math.atan2(b.y - a.y, b.x - a.x);
+  };
+  // A branch: a center line whose width narrows toward the tip, drawn as one closed shape.
+  function limb(pts, w0, w1) {
+    const L = [], R = [];
+    pts.forEach((p, i) => {
+      const a = heading(pts, i) + Math.PI / 2;
+      const w = (w1 + (w0 - w1) * Math.pow(1 - i / (pts.length - 1), 1.45)) / 2;
+      L.push(`${r1(p.x + Math.cos(a) * w)},${r1(p.y + Math.sin(a) * w)}`);
+      R.push(`${r1(p.x - Math.cos(a) * w)},${r1(p.y - Math.sin(a) * w)}`);
+    });
+    const end = pts[pts.length - 1], dir = heading(pts, pts.length - 1);
+    return `M${L.join(" L")} Q${r1(end.x + Math.cos(dir) * w1 * 0.8)},${r1(end.y + Math.sin(dir) * w1 * 0.8)} ${R.reverse().join(" L")} Z`;
+  }
+  const LEAF = "M0,0C0.28,-0.3 0.7,-0.27 1,0C0.7,0.27 0.28,0.3 0,0Z";
+
+  function build(m, W, H) {
+    const view = node("div", `view l${m.level}`);
+    const art = svg("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}`, "aria-hidden": "true" });
+    const tags = node("div", "tags");
+    view.append(art, tags);
+    view.tips = new Map(); // where each branch ends, so a zoom knows where to aim
+    const kids = m.kids, n = kids.length;
+    if (!n) return view;
+
+    const narrow = W < 640;
+    const s = Math.max(0.52, Math.min(1.3, Math.min(W / 1150, H / 780)));
+    const top = narrow ? 74 : 78, baseY = H - (narrow ? 26 : 40), U = baseY - top, cx = W / 2;
+    const step = (U * 0.72) / n; // how far apart two neighbors leave the trunk
+    const labelW = m.level === 2 ? Math.max(108, Math.min(250, W * 0.21)) : Math.max(92, Math.min(190, W * 0.15));
+    const leafLen = m.level === 0 ? 15.5 * s : m.level === 1 ? Math.max(11 * s, Math.min(31 * s, step * 0.62)) : Math.max(20 * s, Math.min(44 * s, step * 1.05));
+    // How far the leaves reach past the end of a branch.
+    const bush = m.level === 0 ? Math.max(24 * s, Math.min(60 * s, step * 1.1)) : m.level === 1 ? leafLen * 1.25 : leafLen;
+    // Zoomed in, a branch is drawn compact: shorter wood, names close by.
+    const rx = Math.max(54, Math.min(cx - labelW - bush - (narrow ? 12 : 26), [9999, 440, 330][m.level] * s));
+    const trunkW = [52, 36, 24][m.level] * s;
+    const most = Math.max(...kids.map((k) => k.count));
+    view.style.setProperty("--fn", `${r1(m.level === 2 ? Math.max(13, Math.min(18, 17 * s + 1)) : Math.max(14, Math.min(23, 21 * s)))}px`);
+    view.style.setProperty("--fc", `${r1(Math.max(12, Math.min(15, 14.5 * s)))}px`);
+
+    // Branches leave the trunk one after another, left then right, the way they do on a real tree.
+    kids.forEach((k, i) => {
+      const t = (i + 0.5) / n, side = i % 2 ? 1 : -1;
+      const reach = rx * (1 - 0.74 * Math.pow(t, 1.9)) * (1 + sway(`${k.key}r`, 0.05));
+      const T = { x: cx + side * reach, y: baseY - U * (0.3 + 0.67 * t) + sway(`${k.key}y`, step * 0.16) };
+      k.geo = { side, T, ay: Math.min(baseY - U * 0.17, T.y + reach * 0.3 + U * 0.06) };
+    });
+    const trunkH = baseY - Math.min(...kids.map((k) => k.geo.ay));
+    const lean = (u) => Math.sin(u * Math.PI * 1.1) * 11 * s;
+    const at = (y) => {
+      const u = Math.max(0, Math.min(1, (baseY - y) / trunkH));
+      return { x: cx + lean(u), w: trunkW * (1 - 0.66 * u) + trunkW * 0.7 * Math.pow(Math.max(0, 1 - u / 0.16), 2) };
+    };
+
+    const crowns = svg("g"), lights = svg("g"), limbs = svg("g");
+    art.append(svg("ellipse", { class: "hill", cx, cy: r1(baseY + 48 * s), rx: r1(Math.min(W * 0.47, 380 * s + 90)), ry: r1(64 * s) }), crowns, lights);
+    const spine = Array.from({ length: 19 }, (_, i) => {
+      const y = baseY + 12 - (i / 18) * (trunkH + 12);
+      return { y, ...at(y) };
+    });
+    const up = svg("g", { class: m.level ? "up" : "" });
+    up.append(
+      svg("path", { class: "bark", d: `M${spine.map((p) => `${r1(p.x - p.w / 2)},${r1(p.y)}`).join(" L")} L${[...spine].reverse().map((p) => `${r1(p.x + p.w / 2)},${r1(p.y)}`).join(" L")} Z` }),
+      svg("circle", { class: "bark", cx: r1(spine[18].x), cy: r1(spine[18].y), r: r1(spine[18].w / 2) }),
+    );
+    art.append(up, limbs);
+
+    const leaf = (g, x, y, a, len, idea) => {
+      const band = call(idea.score)[2];
+      const cls = `lf ${band}${idea.sample ? "" : " real"}${idea.id === landing ? " landing" : ""}`;
+      const mid = { x: x + Math.cos(a) * len * 0.55, y: y + Math.sin(a) * len * 0.55 };
+      if (band === "build") {
+        g.append(svg("path", { class: "stem", d: `M${r1(x)},${r1(y)}L${r1(mid.x)},${r1(mid.y)}` }), svg("circle", { class: cls, cx: r1(mid.x), cy: r1(mid.y), r: r1(len * 0.36) }));
+      } else {
+        g.append(svg("path", { class: `${cls} v${hash(idea.id) % 3}`, d: LEAF, transform: `translate(${r1(x)} ${r1(y)}) rotate(${r1((a * 180) / Math.PI)}) scale(${r1(len)})` }));
+      }
+      // The newest idea that was texted in keeps a slow ring, so it can be found at any zoom.
+      if (idea.id === data.latest) g.append(svg("circle", { class: "ping", cx: r1(mid.x), cy: r1(mid.y), r: r1(Math.max(7, len * 0.5)) }));
+      return mid;
+    };
+    // A twig with its leaves: one at the end, the rest stepping up it on alternate sides. The best idea gets the end.
+    const sprig = (g, x, y, a, len, ideas) => {
+      const end = { x: x + Math.cos(a) * len, y: y + Math.sin(a) * len };
+      g.append(svg("path", { class: "twig", d: `M${r1(x)},${r1(y)}L${r1(end.x)},${r1(end.y)}`, "stroke-width": r1(Math.max(1.3, leafLen * 0.15)) }));
+      const sorted = [...ideas].sort((p, q) => p.score - q.score);
+      sorted.forEach((idea, j) => {
+        if (j === sorted.length - 1) return leaf(g, end.x, end.y, a, leafLen, idea);
+        const f = 0.28 + (0.72 * (j + 1)) / sorted.length;
+        leaf(g, x + Math.cos(a) * len * f, y + Math.sin(a) * len * f, a + (j % 2 ? 1 : -1) * (0.9 + sway(idea.id, 0.2)), leafLen * (0.88 + sway(`${idea.id}s`, 0.1)), idea);
+      });
+    };
+
+    kids.forEach((k, i) => {
+      const { side, T, ay } = k.geo;
+      const root = at(ay), A = { x: root.x, y: ay };
+      const dx = T.x - A.x, dy = T.y - A.y;
+      // Out from the trunk with a little sag, then up toward the light.
+      const pts = cubic(
+        A,
+        { x: A.x + dx * 0.5, y: A.y + Math.abs(dx) * 0.03 + sway(`${k.key}a`, Math.abs(dx) * 0.05) },
+        { x: A.x + dx * 0.84 + sway(`${k.key}b`, Math.abs(dx) * 0.05), y: A.y + dy * 0.48 },
+        T,
+        22,
+      );
+      const last = pts.length - 1;
+      const w0 = m.level === 2 ? Math.max(3.5 * s, trunkW * 0.3) : Math.min(root.w * 0.8, Math.max(5 * s, trunkW * 0.36 * Math.sqrt(k.count / most) + 3 * s));
+      const g = svg("g", { class: "kid", "data-k": i });
+      g.append(svg("path", { class: "bark", d: limb(pts, w0, Math.max(1.8 * s, w0 * 0.16)) }));
+      const dir = heading(pts, last);
+      let spot = T; // where the name goes: just past the leaves
+      if (m.level === 2) {
+        spot = leaf(g, T.x, T.y, dir, leafLen, k.idea);
+      } else if (m.level === 1) {
+        const ideas = [...k.groups[0]].sort((p, q) => p.score - q.score);
+        ideas.forEach((idea, j) => {
+          const end = j === ideas.length - 1;
+          const idx = end ? last : Math.round((0.36 + (0.6 * (j + 0.5)) / ideas.length) * last);
+          const h = heading(pts, idx), a = end ? h : h + (j % 2 ? 1 : -1) * (1.05 + sway(idea.id, 0.2));
+          const stem = end ? 0 : leafLen * 0.42;
+          const p = { x: pts[idx].x + Math.cos(a) * stem, y: pts[idx].y + Math.sin(a) * stem };
+          if (stem) g.append(svg("path", { class: "twig", d: `M${r1(pts[idx].x)},${r1(pts[idx].y)}L${r1(p.x)},${r1(p.y)}`, "stroke-width": r1(Math.max(1.3, leafLen * 0.09)) }));
+          leaf(g, p.x, p.y, a, leafLen * (end ? 1 : 0.92), idea);
+        });
+      } else {
+        k.groups.forEach((ideas, gi) => {
+          const end = gi === k.groups.length - 1;
+          const idx = end ? last : Math.round((0.34 + (0.64 * (gi + 0.5)) / k.groups.length) * last);
+          const h = heading(pts, idx);
+          sprig(g, pts[idx].x, pts[idx].y, end ? h : h + (gi % 2 ? 1 : -1) * (0.75 + sway(`${k.key}${gi}`, 0.22)), bush * (0.4 + 0.085 * Math.sqrt(ideas.length)), ideas);
+        });
+      }
+      if (m.level === 0) {
+        for (const [f, size] of [[0.42, 0.78], [0.7, 1.02], [1, 1.12]]) {
+          const p = pts[Math.round(f * last)], r = bush * size;
+          crowns.append(svg("circle", { class: "crown", cx: r1(p.x), cy: r1(p.y), r: r1(r) }));
+          lights.append(svg("circle", { class: "crown light", cx: r1(p.x - r * 0.18), cy: r1(p.y - r * 0.22), r: r1(r * 0.62) }));
+        }
+      }
+      g.append(svg("circle", { class: "hit", cx: r1(T.x), cy: r1(T.y), r: r1(bush + 12) }));
+      limbs.append(g);
+      view.tips.set(k.key, T);
+
+      const tag = node("button", `tag ${side < 0 ? "l" : "r"}`);
+      tag.type = "button";
+      tag.dataset.k = i;
+      // At the top of the tree a leaf points up, not out, so the name sits beside it rather than past it.
+      const off = m.level === 2 ? leafLen * (0.5 * Math.abs(Math.cos(dir)) + 0.25 * Math.abs(Math.sin(dir))) + 9 : bush + (narrow ? 5 : 12);
+      tag.style.top = `${r1(m.level === 2 ? spot.y : T.y - 4)}px`;
+      if (side < 0) tag.style.right = `${r1(W - (spot.x - off))}px`;
+      else tag.style.left = `${r1(spot.x + off)}px`;
+      tag.style.maxWidth = `${r1(labelW)}px`;
+      if (m.level === 2) {
+        const { idea } = k;
+        tag.classList.add(call(idea.score)[2], idea.sample ? "sample" : "real");
+        if (idea.id === picked) tag.classList.add("on");
+        if (idea.id === landing) tag.classList.add("landing");
+        tag.dataset.i = idea.id;
+        tag.setAttribute("aria-label", `${idea.title}, ${idea.score} out of 100, ${call(idea.score)[1]}`);
+        tag.append(node("span", "num", idea.score), node("span", "ttl", idea.title));
+      } else {
+        tag.setAttribute("aria-label", `${k.name}, ${k.count} ${k.count === 1 ? "idea" : "ideas"}. Zoom in.`);
+        tag.append(node("b", "", k.name), node("span", "", `${k.count} ${k.count === 1 ? "idea" : "ideas"}`));
+        if (k.real) tag.append(node("em", "", `${k.real} texted in`));
+      }
+      tags.append(tag);
+    });
+
+    // Pointing at a branch, its leaves or its name lights all three and lets the rest step back.
+    const glow = (k) => {
+      view.classList.toggle("hot", k != null);
+      for (const e of view.querySelectorAll("[data-k]")) e.classList.toggle("hot", e.dataset.k === k);
+    };
+    view.addEventListener("pointerover", (e) => e.pointerType !== "touch" && glow(e.target.closest?.("[data-k]")?.dataset.k));
+    view.addEventListener("pointerleave", () => glow(null));
+    return view;
+  }
+
+  function crumbs() {
+    const nav = $("crumbs");
+    nav.replaceChildren();
+    const add = (label, p, now) => {
+      const e = node(now ? "span" : "button", now ? "now" : "", label);
+      if (!now) {
+        e.type = "button";
+        e.addEventListener("click", () => go(p));
+      }
+      nav.append(e);
+    };
+    add("All ideas", [], !path.length);
+    path.forEach((name, i) => {
+      nav.append(node("i", "", "/"));
+      add(name, path.slice(0, i + 1), i === path.length - 1);
+    });
+    $("hint").textContent = ["Tap a branch to zoom in", "Tap a branch to read its ideas", "Tap an idea for its score"][path.length];
+  }
+
+  // ---- moving between views
+  function draw(next, how) {
+    const views = $("views"), W = views.clientWidth, H = views.clientHeight;
+    const old = current, from = path;
+    path = next;
+    if (picked && find(picked)?.home.join("/") !== path.join("/")) picked = null;
+    shown = model(path);
+    const fresh = build(shown, W, H);
+    box = `${W}x${H}`;
+    crumbs();
+    $("empty").hidden = data.trunks.length > 0;
+    const ground = `50% ${H - 40}px`;
+    if (still || !how || (!old && how !== "grow")) {
+      views.replaceChildren(fresh);
+    } else if (!old) {
+      // First sight: the tree grows out of the ground.
+      fresh.style.transformOrigin = ground;
+      fresh.classList.add("from-small");
+      views.append(fresh);
+      void fresh.offsetWidth;
+      fresh.classList.remove("from-small");
+    } else if (how === "in") {
+      // Zooming in: the old tree rushes past, aimed at the branch that was tapped. That branch grows as the new trunk.
+      const aim = old.tips?.get(from.length ? `b:${next[0]}/${next[1]}` : `t:${next[0]}`);
+      old.style.transformOrigin = aim ? `${aim.x}px ${aim.y}px` : "50% 40%";
+      fresh.style.transformOrigin = ground;
+      fresh.classList.add("from-small");
+      views.append(fresh);
+      void fresh.offsetWidth;
+      old.classList.add("to-big");
+      fresh.classList.remove("from-small");
+      setTimeout(() => old.remove(), 720);
+    } else {
+      // Zooming out: the reverse. The tree we were on shrinks back into the branch it is.
+      const aim = fresh.tips.get(next.length ? `b:${from[0]}/${from[1]}` : `t:${from[0]}`);
+      old.style.transformOrigin = ground;
+      fresh.style.transformOrigin = aim ? `${aim.x}px ${aim.y}px` : "50% 40%";
+      fresh.classList.add("from-big");
+      views.append(fresh);
+      void fresh.offsetWidth;
+      old.classList.add("to-small");
+      fresh.classList.remove("from-big");
+      setTimeout(() => old.remove(), 720);
+    }
+    current = fresh;
+    sign();
+    landing = null;
+  }
+  function route() {
+    if (!data) return;
+    const next = fit(fromHash());
+    if (current && next.join("/") === path.join("/")) return;
+    draw(next, next.length >= path.length ? "in" : "out");
+  }
+  const go = (p) => {
+    if (toHash(p) === location.hash) return route();
+    if (p.length) location.hash = toHash(p);
+    else history.pushState(null, "", location.pathname + location.search), route();
+  };
+  addEventListener("hashchange", route);
+  addEventListener("popstate", route);
+  addEventListener("keydown", (e) => e.key === "Escape" && (picked ? pick(null) : path.length && go(path.slice(0, -1))));
 
   const ago = (iso) => {
     const min = Math.round((Date.now() - Date.parse(iso)) / 60000);
@@ -292,11 +364,11 @@
 
   // One idea up close: the number, then the two ratings it came from.
   function sign() {
-    const s = spots.get(picked);
-    $("thread").hidden = Boolean(s);
-    $("sign").hidden = !s;
-    if (!s) return;
-    const { idea } = s;
+    const hit = picked && find(picked);
+    $("thread").hidden = Boolean(hit);
+    $("sign").hidden = !hit;
+    if (!hit) return;
+    const { idea, home } = hit;
     const [, name, band] = call(idea.score);
     $("sign").dataset.band = band;
     const fresh = idea.id === data.latest && Date.now() - Date.parse(idea.at) < 5 * 60_000;
@@ -306,111 +378,80 @@
     $("sign-problem").textContent = idea.problem;
     $("sign-fix").textContent = idea.fix;
     $("sign-call").textContent = name;
-    $("sign-where").textContent = `${s.t.name} / ${s.b.name}`;
-    const met = (partners.get(idea.id) ?? []).map((id) => spots.get(id)).find(Boolean);
+    $("sign-where").textContent = home.join(" / ");
+    const met = data.links.map(([a, b]) => (a === idea.id ? b : b === idea.id ? a : null)).map((id) => id && find(id)).find(Boolean);
     $("sign-near").textContent = met
       ? `Connected with the builder on "${met.idea.title}"`
       : idea.near
         ? `${idea.near} ${idea.near === 1 ? "builder is" : "builders are"} close to it`
         : "";
   }
-
   function pick(id) {
     picked = id;
-    for (const e of $("nodes").querySelectorAll(".leaf")) e.classList.toggle("on", e.dataset.i === id);
+    for (const e of current?.querySelectorAll(".tag[data-i]") ?? []) e.classList.toggle("on", e.dataset.i === id);
     sign();
-    rest();
   }
 
+  $("views").addEventListener("click", (e) => {
+    if (e.target.closest(".view") !== current) return;
+    const k = e.target.closest("[data-k]")?.dataset.k;
+    if (k != null) {
+      const kid = shown.kids[k];
+      return kid.idea ? pick(kid.idea.id === picked ? null : kid.idea.id) : go(kid.go);
+    }
+    if (e.target.closest(".up")) return go(path.slice(0, -1));
+    if (picked) pick(null);
+  });
+  $("sign-close").addEventListener("click", () => pick(null));
+  // The example texts are about one idea on the tree. This walks to it.
+  $("see").addEventListener("click", () => {
+    const all = data.trunks.flatMap((t) => t.branches.flatMap((b) => b.ideas));
+    const hit = all.find((i) => i.sample && i.title === "Accessible entrances") ?? all.find((i) => i.score >= 70);
+    if (!hit) return;
+    picked = hit.id;
+    const { home } = find(hit.id);
+    if (home.join("/") === path.join("/")) pick(hit.id);
+    else go(home);
+  });
+
   function apply(next) {
-    // The live feed repeats the current map when it connects. Nothing changed, nothing to redraw.
+    // The live feed repeats the current tree when it connects. Nothing changed, nothing to redraw.
     const raw = JSON.stringify(next);
     if (raw === seenRaw) return;
     seenRaw = raw;
     const ids = new Set(next.trunks.flatMap((t) => t.branches.flatMap((b) => b.ideas.map((i) => i.id))));
     const fresh = known && next.latest && !known.has(next.latest) ? next.latest : null;
+    const first = !data;
     data = next;
     known = ids;
     document.title = next.name;
     $("name").textContent = next.name;
     $("tally").textContent = next.ideas ? `${next.ideas} texted in${next.connected ? `, ${next.connected} connected` : ""}` : "";
-    $("key-sample").hidden = !next.trunks.some((t) => t.branches.some((b) => b.ideas.some((i) => i.sample)));
     if (picked && !ids.has(picked)) picked = null;
     if (fresh) {
-      // The idea that just landed takes the map: its line draws in and the rest steps back.
-      picked = fresh;
-      held = null;
-      landing = fresh;
-      closeJoin(); // whoever scanned the code has texted: give the card back
+      // A text just landed: go to its branch, grow its leaf and show its score.
+      const { home } = find(fresh);
+      picked = landing = fresh;
+      closeJoin(); // whoever scanned the code has texted: give the side back
+      const moved = home.join("/") !== path.join("/");
+      draw(home, moved ? "in" : null);
+      if (location.hash !== toHash(home)) history.replaceState(null, "", location.pathname + location.search + toHash(home));
+      if (matchMedia("(max-width: 900px)").matches) $("stage").scrollIntoView({ block: "start", behavior: "smooth" });
+      return;
     }
-    render();
-    pointAtExample();
-    if (fresh && tall()) $("nodes").querySelector(`.leaf[data-i="${fresh}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+    draw(fit(first ? fromHash() : path), first ? "grow" : null);
   }
 
-  // ---- pointing and tapping
-  $("nodes").addEventListener("pointerover", (e) => {
-    const key = e.pointerType === "touch" ? null : keyOf(e.target);
-    if (key) light(key);
-  });
-  $("nodes").addEventListener("pointerout", (e) => {
-    if (e.pointerType !== "touch") rest();
-  });
-  $("stage").addEventListener("click", (e) => {
-    const n = e.target.closest("[data-t]");
-    if (n?.dataset.i) {
-      held = null;
-      return pick(n.dataset.i === picked ? null : n.dataset.i);
-    }
-    // A trunk or branch name holds its lines lit. A tap on open paper lets everything go.
-    const key = n ? keyOf(n) : null;
-    held = key && key !== held ? key : null;
-    pick(null);
-  });
-  $("sign-close").addEventListener("click", () => pick(null));
-
-  // The example texts are about one idea on the map. Pointing at them lights the line they became.
-  const EXAMPLE = "Accessible entrances";
-  const exampleKey = () => {
-    const s = [...spots.values()].find((x) => x.idea.sample && x.idea.title === EXAMPLE);
-    return s ? `i:${s.idea.id}` : null;
-  };
-  $("thread").addEventListener("pointerenter", () => {
-    const key = exampleKey();
-    if (key && !picked) light(key);
-  });
-  $("thread").addEventListener("pointerleave", () => rest());
-  // And once, right after the lines have grown, the map shows it without being asked.
-  let pointed = still;
-  function pointAtExample() {
-    if (pointed || tall()) return;
-    pointed = true;
-    setTimeout(() => {
-      const key = exampleKey();
-      if (!key || picked || held) return;
-      light(key);
-      setTimeout(() => !picked && !held && rest(), 2600);
-    }, 2300);
-  }
-
-  // Redraw when the map's box or the card changes size (window resize, the scan code opening, a phone rotating).
+  // Redraw when the tree's box changes size (window resize, a phone rotating).
   let resizing;
-  const sizes = new ResizeObserver(() => {
-    if (!data || sizeKey() === box) return;
+  new ResizeObserver(() => {
+    const v = $("views");
+    if (!data || `${v.clientWidth}x${v.clientHeight}` === box) return;
     clearTimeout(resizing);
-    resizing = setTimeout(() => data && render(), 100);
-  });
-  sizes.observe($("stage"));
-  sizes.observe($("hub"));
-  // If the map is taller than the window it scrolls under the card, and the lines stay attached to it.
-  let frame;
-  $("stage").addEventListener("scroll", () => {
-    if (tall() || !data) return;
-    cancelAnimationFrame(frame);
-    frame = requestAnimationFrame(render);
-  }, { passive: true });
+    resizing = setTimeout(() => data && draw(path, null), 120);
+  }).observe($("views"));
 
-  // ---- live: the server pushes the map the moment a text is scored
+  // ---- live: the server pushes the tree the moment a text is scored
   function live() {
     const es = new EventSource("/api/events");
     es.onmessage = (e) => apply(JSON.parse(e.data));
@@ -419,10 +460,9 @@
       setTimeout(live, 3000);
     };
   }
-  // The card's height depends on the typeface, so wait for it (briefly) before the first draw.
-  const fonts = Promise.race([document.fonts?.load('800 40px "Archivo"'), new Promise((done) => setTimeout(done, 1500))]).catch(() => {});
-  Promise.all([fetch("/api/map", { cache: "no-store" }).then((res) => res.json()), fonts])
-    .then(([map]) => apply(map))
+  fetch("/api/map", { cache: "no-store" })
+    .then((res) => res.json())
+    .then(apply)
     .catch(() => {})
     .finally(live);
 
@@ -430,17 +470,17 @@
   function closeJoin() {
     clearTimeout(joinTimer);
     $("join-done").hidden = true;
-    $("core").classList.remove("joining");
+    $("panel").classList.remove("joining");
   }
 
   // ---- text it: register the number, then hand them Messages with the first text started
   const pretty = (n) => (/^\+1\d{10}$/.test(n) ? `(${n.slice(2, 5)}) ${n.slice(5, 8)}-${n.slice(8)}` : n);
   $("join").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const note = $("join-note"), go = $("join-go");
+    const note = $("join-note"), btn = $("join-go");
     note.className = "join-note";
     note.textContent = "";
-    go.disabled = true;
+    btn.disabled = true;
     try {
       const res = await fetch("/api/join", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ phone: $("phone").value }) });
       const out = await res.json();
@@ -454,7 +494,7 @@
       $("join-how").querySelector("b").textContent = pretty(out.number);
       // On a shared laptop the next person should not see this number, and the code needs the room.
       $("phone").value = "";
-      $("core").classList.add("joining");
+      $("panel").classList.add("joining");
       clearTimeout(joinTimer);
       joinTimer = setTimeout(closeJoin, 4 * 60_000);
       if (touch) location.href = out.link;
@@ -462,7 +502,7 @@
       note.className = "join-note bad";
       note.textContent = err.message;
     } finally {
-      go.disabled = false;
+      btn.disabled = false;
     }
   });
 })();

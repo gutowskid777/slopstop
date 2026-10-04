@@ -7,12 +7,12 @@
 <meta name="description" content="Text it an idea, or what you're building. It scores it out of 100 instantly, then connects you to the builders closest to it.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/map.css">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/lines.css">
 </head>
 <body>
 <main class="shell">
-  <aside class="panel" id="panel">
+  <div class="core" id="core">
     <header class="top">
       <a class="mark" href="/" id="name">Bearing</a>
       <p class="tally" id="tally"></p>
@@ -38,11 +38,13 @@
       </form>
     </section>
 
-    <ul class="key" aria-label="How to read the tree">
-      <li class="k-build"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/></svg><b>build it</b>70 and up</li>
-      <li class="k-sharp"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M1,10C6,3 14,3 19,10C14,17 6,17 1,10Z"/></svg><b>sharpen it</b>40 to 69</li>
-      <li class="k-drop"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M1,10C6,3 14,3 19,10C14,17 6,17 1,10Z"/></svg><b>drop it or flip it</b>under 40</li>
-      <li class="k-real" id="key-sample"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2,10C6,4 14,4 18,10C14,16 6,16 2,10Z"/></svg><b>texted in</b>the rest are samples</li>
+    <ul class="key" aria-label="How to read the map">
+      <li class="k-what">Every line is an idea.</li>
+      <li class="k-build"><i></i><b>build it</b>70 and up</li>
+      <li class="k-sharp"><i></i><b>sharpen it</b>40 to 69</li>
+      <li class="k-drop"><i></i><b>drop it or flip it</b>under 40</li>
+      <li class="k-real"><i></i>texted in</li>
+      <li class="k-sample" id="key-sample"><i></i>sample</li>
       <li class="k-how"><a href="/graph">How the score works</a></li>
     </ul>
 
@@ -52,7 +54,6 @@
         <p class="it">90/100<br>problem 10&nbsp;&nbsp;·&nbsp;&nbsp;fix 2</p>
         <p class="it">build it. one staircase ends the trip, and a map is nothing new to learn.</p>
         <p class="it">one builder's close. want an intro?</p>
-        <button class="see" id="see" type="button">Find it on the tree</button>
       </div>
 
       <article class="sign" id="sign" aria-live="polite" hidden>
@@ -68,17 +69,17 @@
         <p class="sign-near" id="sign-near"></p>
       </article>
     </div>
-  </aside>
 
-  <section class="stage" id="stage" aria-label="The idea tree">
-    <header class="where">
-      <nav class="crumbs" id="crumbs" aria-label="Where you are on the tree"></nav>
-      <p class="hint" id="hint"></p>
-    </header>
-    <div class="views" id="views"></div>
-    <p class="empty" id="empty" hidden>No ideas on the tree yet. Text the first one.</p>
+  </div>
+
+  <section class="stage" id="stage" aria-label="The branch map">
+    <div class="canvas" id="canvas">
+      <svg id="wires" aria-hidden="true"></svg>
+      <div id="nodes"></div>
+    </div>
+    <p class="empty" id="empty" hidden>No ideas on the map yet. Text the first one.</p>
   </section>
 </main>
-<script src="/map.js"></script>
+<script src="/lines.js"></script>
 </body>
 </html>

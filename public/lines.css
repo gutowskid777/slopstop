@@ -1,0 +1,187 @@
+/* Bearing. White paper, ink lines and one red: a red line is an idea worth building. */
+:root {
+  --paper: #fff;
+  --wash: #f1f2f4;
+  --ink: #101114;
+  --mute: #686c75;
+  --faint: #d3d6dc; /* the lines of ideas to drop */
+  --red: #e4002b;
+  --blue: #0a84ff; /* the iMessage bubble. Only the example texts use it. */
+  --bubble: #e9e9eb;
+  --font: "Archivo", "Helvetica Neue", Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--paper); color: var(--ink); font-family: var(--font); -webkit-font-smoothing: antialiased; }
+button, input { font: inherit; color: inherit; }
+a { color: inherit; }
+:focus-visible { outline: 2.5px solid var(--ink); outline-offset: 2px; }
+
+.shell { position: relative; height: 100dvh; overflow: hidden; }
+
+/* ---- the middle column: the name, the card the lines leave from, and one idea up close */
+.core {
+  position: absolute; z-index: 2; top: 0; bottom: 0; left: 50%; width: 296px; margin-left: -148px;
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(min-content, 1fr) auto minmax(0, 1fr);
+  pointer-events: none;
+}
+.core > * { pointer-events: auto; grid-column: 1; }
+.top { grid-row: 1; align-self: start; margin-top: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.mark { font-weight: 900; font-stretch: 125%; font-size: 46px; line-height: 1; letter-spacing: -0.03em; text-decoration: none; }
+.tally { margin: 0; font-size: 15px; font-weight: 700; font-stretch: 86%; white-space: nowrap; }
+
+.key { grid-row: 1; align-self: start; margin: 84px 0 20px; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 15px; font-stretch: 86%; color: var(--mute); }
+.key b { margin-right: 7px; color: var(--ink); font-weight: 700; }
+.key .k-what { flex-basis: 100%; margin-bottom: 2px; color: var(--ink); font-size: 17px; font-weight: 800; }
+.key li { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+.key i { flex: none; width: 22px; height: 4px; border-radius: 2px; background: var(--faint); }
+.key .k-build i { background: var(--red); }
+.key .k-sharp i { background: var(--ink); }
+.key .k-build, .key .k-sharp, .key .k-drop { flex-basis: 100%; }
+.key .k-real i, .key .k-sample i { width: 11px; height: 11px; border-radius: 50%; background: var(--ink); }
+.key .k-sample i { background: none; box-shadow: inset 0 0 0 2.5px var(--ink); }
+.key .k-how { flex-basis: 100%; margin-top: 3px; }
+.key .k-how a { color: var(--ink); font-weight: 700; }
+
+.hub { grid-row: 2; background: var(--ink); color: #fff; border-radius: 24px; padding: 22px 20px 20px; }
+.hub :focus-visible { outline-color: #fff; }
+.hub h1 { margin: 0; font-size: 40px; line-height: 0.96; font-weight: 800; font-stretch: 88%; letter-spacing: -0.02em; }
+.lede { margin: 10px 0 16px; font-size: 15px; line-height: 1.34; color: #c8cad0; }
+.join label { display: block; margin-bottom: 6px; font-size: 13px; color: #a4a7af; }
+.join-row { display: flex; gap: 8px; }
+.join input { flex: 1; min-width: 0; height: 46px; padding: 0 13px; border: 0; border-radius: 12px; background: #fff; color: var(--ink); font-size: 17px; font-weight: 600; }
+.join input::placeholder { color: #a4a7af; font-weight: 500; }
+.join button { flex: none; height: 46px; padding: 0 17px; border: 0; border-radius: 12px; background: var(--red); color: #fff; font-size: 16px; font-weight: 800; cursor: pointer; }
+.join button:disabled { opacity: 0.6; cursor: default; }
+.join-note { margin: 8px 0 0; font-size: 13.5px; color: #c8cad0; }
+.join-note:empty { display: none; }
+.join-note.bad { color: #ff8e9c; }
+.join-done { margin-top: 14px; display: grid; gap: 10px; justify-items: center; text-align: center; }
+.qr { width: 100%; max-width: 232px; padding: 13px; border-radius: 14px; background: #fff; }
+.qr svg { display: block; width: 100%; height: auto; }
+.join-how { margin: 0 0 4px; font-size: 15px; line-height: 1.3; }
+.join-how b { white-space: nowrap; }
+.join-open { font-weight: 700; }
+.core.joining .lede, .core.joining .below { display: none; }
+.core.joining .join { margin-top: 16px; }
+
+.below { grid-row: 3; align-self: start; margin-top: 14px; }
+.thread { display: grid; gap: 5px; }
+.thread p { margin: 0; max-width: 88%; padding: 8px 12px; border-radius: 18px; font: 14.5px/1.28 -apple-system, "SF Pro Text", "Helvetica Neue", Arial, sans-serif; }
+.thread .me { justify-self: end; margin-bottom: 3px; background: var(--blue); color: #fff; border-bottom-right-radius: 5px; }
+.thread .it { justify-self: start; background: var(--bubble); color: #000; }
+.thread .it:last-child { border-bottom-left-radius: 5px; }
+
+.sign { position: relative; padding: 15px 17px 16px; border: 2.5px solid var(--ink); border-radius: 20px; background: var(--paper); }
+.sign-close { position: absolute; top: 10px; right: 10px; padding: 4px 10px; border: 0; border-radius: 99px; background: var(--wash); font-size: 13px; font-weight: 600; cursor: pointer; }
+.sign-when { margin: 0 0 7px; font-size: 13px; color: var(--mute); }
+.sign h2 { margin: 0 0 10px; text-wrap: balance; font-size: 22px; line-height: 1.08; font-weight: 800; font-stretch: 90%; }
+.sign-score { margin: 0; display: flex; align-items: baseline; font-size: 60px; line-height: 0.9; font-weight: 800; letter-spacing: -0.035em; font-variant-numeric: tabular-nums; }
+.sign-score small { margin-left: 3px; font-size: 19px; font-weight: 700; letter-spacing: 0; color: var(--mute); }
+.sign-score b { align-self: center; margin-left: auto; padding: 6px 11px; border-radius: 99px; background: var(--wash); font-size: 15px; line-height: 1; letter-spacing: 0; }
+.sign[data-band="build"] .sign-score span { color: var(--red); }
+.sign[data-band="build"] .sign-score b { background: var(--red); color: #fff; }
+.sign[data-band="drop"] .sign-score span { color: var(--mute); }
+.sign-inputs { display: flex; gap: 18px; margin: 12px 0 0; }
+.sign-inputs div { display: flex; align-items: baseline; gap: 6px; }
+.sign-inputs dt { font-size: 14px; color: var(--mute); }
+.sign-inputs dd { margin: 0; font-size: 19px; font-weight: 800; }
+.sign-where, .sign-near { margin: 8px 0 0; font-size: 14px; color: var(--mute); }
+.sign-near { color: var(--ink); font-weight: 600; }
+.sign-near:empty { display: none; }
+
+
+/* ---- the map */
+.stage { position: absolute; z-index: 1; inset: 0; overflow: hidden auto; }
+.canvas { position: relative; width: 100%; }
+#wires { position: absolute; left: 0; top: 0; overflow: visible; }
+#nodes { position: absolute; inset: 0; }
+.empty { position: absolute; left: 28px; top: 22px; margin: 0; color: var(--mute); }
+
+/* One line per idea. Drawn in three layers so red always rides on top. */
+.w { fill: none; stroke: var(--c); stroke-width: var(--sw, 2.4px); transition: opacity 0.18s; }
+.w.build { --c: var(--red); }
+.w.sharp { --c: #1c1d21; }
+.w.drop { --c: var(--faint); }
+.w.grow { stroke-dasharray: 1; stroke-dashoffset: 1; animation: grow 1s cubic-bezier(0.6, 0, 0.2, 1) forwards; }
+@keyframes grow { to { stroke-dashoffset: 0; } }
+
+#nodes > * { transition: opacity 0.18s, background-color 0.18s, color 0.18s; }
+.focus .w:not(.lit) { opacity: 0.13; }
+/* The one in the light is drawn heavier, and a gray line darkens so a low score still shows up. */
+.focus .w.lit { stroke-width: calc(var(--sw, 2px) + 1.2px); }
+.focus .w.drop.lit, .focus .leaf.drop.lit { --c: #7b7f88; }
+.focus .leaf.drop.lit .num, .focus .leaf.drop.lit .ttl { color: var(--ink); }
+.focus #nodes > :not(.lit) { opacity: 0.26; }
+/* A trunk name out of the light goes pale like everything else, not gray like a dead button. */
+.focus .canvas:not(.tall) #nodes > .chip.t:not(.lit) { opacity: 1; background: var(--paper); color: #c4c6cc; box-shadow: inset 0 0 0 1.5px #e6e8ec; }
+.rise { animation: rise 0.45s ease-out backwards; }
+@keyframes rise { from { opacity: 0; } }
+
+/* Trunk and branch names sit on their own bundle of lines, which breaks behind the word. */
+.chip { position: absolute; transform: translate(-50%, -50%); padding: 3px 7px; border-radius: 8px; background: var(--paper); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.12; cursor: default; user-select: none; }
+.chip.t { padding: 4px 10px 5px; border-radius: 10px; background: var(--ink); color: #fff; font-size: var(--tf, 21px); font-weight: 800; font-stretch: 78%; }
+.chip.b { font-size: var(--bf, 15px); font-weight: 600; font-stretch: 78%; }
+
+.leaf { position: absolute; display: flex; align-items: center; gap: 6px; height: var(--row, 24px); margin-top: calc(var(--row, 24px) / -2); padding: 0; border: 0; background: none; color: var(--ink); font-size: var(--fs, 14.5px); font-stretch: 84%; line-height: 1; white-space: nowrap; cursor: pointer; }
+.leaf.l { flex-direction: row-reverse; }
+.leaf .dot { position: relative; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 2px var(--paper); }
+.leaf.sample .dot { background: var(--paper); box-shadow: inset 0 0 0 2.5px var(--c), 0 0 0 2px var(--paper); }
+.leaf .num { flex: none; min-width: 1.75em; padding: 2px 0; border-radius: 6px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
+.leaf .ttl { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 500; padding: 2px 0; }
+.leaf.build { --c: var(--red); }
+.leaf.sharp { --c: var(--ink); }
+.leaf.drop { --c: #b9bcc4; }
+.leaf.build .num { padding: 2px 4px; background: var(--red); color: #fff; }
+.leaf.drop .num, .leaf.drop .ttl { color: #8b8f98; }
+.leaf.real .ttl { font-weight: 800; }
+.leaf.on .ttl { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+/* The newest idea that was texted in keeps a slow ring, so a judge can find "the one that just landed". */
+.leaf.here .dot::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--c); animation: ping 2.2s ease-out infinite; }
+.leaf.landing { animation: land 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) backwards; }
+@keyframes ping { from { transform: scale(0.55); opacity: 0.95; } to { transform: scale(1.9); opacity: 0; } }
+@keyframes land { from { opacity: 0; transform: scale(0.6); } }
+
+/* ---- smaller laptops: a narrower card leaves the branches more room */
+@media (min-width: 1260px) and (max-width: 1380px) {
+  .core { width: 264px; margin-left: -132px; }
+  .mark { font-size: 36px; }
+  .hub { padding: 20px 18px 18px; }
+  .hub h1 { font-size: 35px; }
+  .lede { font-size: 14.5px; }
+}
+
+/* ---- short screens: the example gives way first */
+@media (min-width: 1381px) and (max-height: 705px) { .thread { display: none; } }
+@media (min-width: 1260px) and (max-width: 1380px) and (max-height: 767px) { .thread { display: none; } }
+@media (min-width: 1260px) and (max-height: 760px) { .qr { max-width: 172px; padding: 10px; } }
+
+/* ---- phone and narrow windows: the card on top, then one trunk after another */
+@media (max-width: 1259px) {
+  html, body { height: auto; }
+  .shell { height: auto; min-height: 100dvh; overflow: visible; max-width: 620px; margin: 0 auto; }
+  .core { position: static; display: block; width: auto; margin: 0; padding: 14px 16px 0; pointer-events: auto; }
+  .top { margin: 0 0 12px; }
+  .hub h1 { font-size: 38px; }
+  .below { margin: 0; }
+  .thread { display: none; }
+  .sign { position: fixed; z-index: 5; left: 12px; right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); max-width: 596px; margin: 0 auto; box-shadow: 0 14px 44px rgba(16, 17, 20, 0.24); }
+  .stage { position: static; overflow: visible; padding: 18px 0 40px; }
+  .empty { position: static; padding: 0 18px; }
+  .canvas.tall .chip { transform: translateY(-50%); padding: 0 3px; margin-left: -3px; background: none; max-width: calc(100% - 36px); }
+  .canvas.tall .chip.t { color: var(--ink); font-size: 24px; }
+  .canvas.tall .chip.b { font-size: 15px; font-weight: 700; }
+  .shell { display: flex; flex-direction: column; }
+  .core { display: contents; }
+  .mark { font-size: 34px; }
+  .top { order: 1; padding: 14px 16px 0; }
+  .hub { order: 2; margin: 0 16px; }
+  .key { order: 3; margin: 16px 18px 0; gap: 7px 16px; }
+  .stage { order: 4; }
+  .below { order: 5; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
