@@ -120,7 +120,7 @@
     const H = Math.max(view, Math.ceil(rows * row + pad * 2));
     canvas.style.height = `${H}px`;
     canvas.style.setProperty("--row", `${r(row)}px`);
-    canvas.style.setProperty("--fs", `${r(Math.max(12.5, Math.min(16.5, row * 0.6)))}px`);
+    canvas.style.setProperty("--fs", `${r(Math.max(12.5, Math.min(17, row * 0.66)))}px`);
     $("wires").setAttribute("width", W);
     $("wires").setAttribute("height", H);
 
@@ -135,7 +135,7 @@
       const dir = s ? 1 : -1;
       const edge = s ? hub.r : hub.l;
       const room = (s ? W - hub.r : hub.l) - 18;
-      const leafW = Math.max(132, Math.min(208, room * 0.38));
+      const leafW = Math.max(132, Math.min(236, room * 0.4));
       const run = room - leafW - 12;
       // Names shrink with the room they have, so a smaller laptop never cuts one short.
       canvas.style.setProperty("--tf", `${r(Math.max(15, Math.min(21, run * 0.057)))}px`);
