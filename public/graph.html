@@ -288,7 +288,7 @@
   }).observe($("plot"));
 
   const apply = (d) => {
-    $("name").textContent = d.name;
+    $("name").textContent = "SlopStop";
     ideas = d.trunks.flatMap((t) => t.branches.flatMap((b) => b.ideas));
     if (!dragging) draw();
   };
