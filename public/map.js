@@ -225,16 +225,39 @@
           leaf(g, p.x, p.y, a, leafLen * (end ? 1 : 0.92), idea);
         });
       } else {
-        k.groups.forEach((ideas, gi) => {
-          const end = gi === k.groups.length - 1;
-          const idx = end ? last : Math.round((0.34 + (0.64 * (gi + 0.5)) / k.groups.length) * last);
-          const h = heading(pts, idx);
-          sprig(g, pts[idx].x, pts[idx].y, end ? h : h + (gi % 2 ? 1 : -1) * (0.75 + sway(`${k.key}${gi}`, 0.22)), bush * (0.4 + 0.085 * Math.sqrt(ideas.length)), ideas);
-        });
+        // A big branch forks once, part way out, the way real wood does. The fork reaches for the light,
+        // and the twigs take turns between the two arms.
+        const at0 = Math.round(0.44 * last), from = pts[at0], h0 = heading(pts, at0);
+        const reachF = Math.hypot(T.x - from.x, T.y - from.y) * (0.5 + sway(`${k.key}f`, 0.08));
+        const aim = h0 - side * (0.62 + sway(`${k.key}g`, 0.12));
+        const tipF = { x: from.x + Math.cos(aim) * reachF, y: from.y + Math.sin(aim) * reachF };
+        const arm = cubic(
+          from,
+          { x: from.x + Math.cos(h0) * reachF * 0.36, y: from.y + Math.sin(h0) * reachF * 0.36 },
+          { x: tipF.x - Math.cos(aim - side * 0.3) * reachF * 0.3, y: tipF.y - Math.sin(aim - side * 0.3) * reachF * 0.3 },
+          tipF,
+          12,
+        );
+        const fork = k.groups.length > 3;
+        if (fork) g.append(svg("path", { class: "bark", d: limb(arm, w0 * 0.5, Math.max(1.6 * s, w0 * 0.12)) }));
+        const mine = fork ? k.groups.filter((_, gi) => gi % 2 === 0 || gi === k.groups.length - 1) : k.groups;
+        const theirs = fork ? k.groups.filter((_, gi) => gi % 2 === 1 && gi !== k.groups.length - 1) : [];
+        const dress = (line, groups, start, tag) =>
+          groups.forEach((ideas, gi) => {
+            const end = gi === groups.length - 1, top = line.length - 1;
+            const idx = end ? top : Math.round((start + ((1 - start) * (gi + 0.5)) / groups.length) * top);
+            const h = heading(line, idx);
+            sprig(g, line[idx].x, line[idx].y, end ? h : h + (gi % 2 ? 1 : -1) * (0.75 + sway(`${k.key}${tag}${gi}`, 0.22)), bush * (0.4 + 0.085 * Math.sqrt(ideas.length)), ideas);
+          });
+        dress(pts, mine, fork ? 0.56 : 0.34, "m");
+        dress(arm, theirs, 0.3, "f");
+        if (fork) k.geo.fork = tipF;
       }
       if (m.level === 0) {
-        for (const [f, size] of [[0.42, 0.78], [0.7, 1.02], [1, 1.12]]) {
-          const p = pts[Math.round(f * last)], r = bush * size;
+        const puffs = [[pts[Math.round(0.42 * last)], 0.78], [pts[Math.round(0.72 * last)], 1.02], [pts[last], 1.12]];
+        if (k.geo.fork) puffs.push([k.geo.fork, 1.0]);
+        for (const [p, size] of puffs) {
+          const r = bush * size;
           crowns.append(svg("circle", { class: "crown", cx: r1(p.x), cy: r1(p.y), r: r1(r) }));
           lights.append(svg("circle", { class: "crown light", cx: r1(p.x - r * 0.18), cy: r1(p.y - r * 0.22), r: r1(r * 0.62) }));
         }

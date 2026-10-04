@@ -92,14 +92,14 @@ a { color: inherit; }
 
 /* ---- the tree */
 .stage { position: relative; min-width: 0; overflow: hidden; }
-.where { position: absolute; z-index: 3; top: 22px; left: 26px; right: 26px; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; pointer-events: none; }
-.where > * { pointer-events: auto; }
+.where { position: absolute; z-index: 3; top: 22px; left: 26px; right: 26px; pointer-events: none; }
+.where > * { width: fit-content; pointer-events: auto; }
 .crumbs { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 9px; font-size: 17px; }
 .crumbs button { padding: 0; border: 0; background: none; color: var(--mute); font-weight: 600; text-decoration: underline; text-decoration-color: var(--line); text-decoration-thickness: 2px; text-underline-offset: 4px; cursor: pointer; }
 .crumbs button:hover { color: var(--ink); text-decoration-color: var(--ink); }
 .crumbs i { font-style: normal; color: #b3bdb0; }
 .crumbs .now { font-size: 26px; font-weight: 800; letter-spacing: -0.025em; }
-.hint { margin: 0; font-size: 15px; color: var(--mute); white-space: nowrap; }
+.hint { margin: 5px 0 0; font-size: 16px; color: var(--mute); }
 .empty { position: absolute; left: 0; right: 0; top: 42%; margin: 0; text-align: center; color: var(--mute); }
 
 .views { position: absolute; inset: 0; }
@@ -175,10 +175,10 @@ a { color: inherit; }
   .hub { order: 2; padding: 0 18px; }
   .hub h1 { font-size: 44px; }
   .stage { order: 3; height: min(600px, 76dvh); margin-top: 6px; }
-  .where { top: 12px; left: 18px; right: 18px; display: block; }
+  .where { top: 12px; left: 18px; right: 18px; }
   .crumbs { font-size: 15px; }
   .crumbs .now { font-size: 21px; }
-  .hint { margin-top: 3px; font-size: 14px; }
+  .hint { margin-top: 3px; font-size: 14.5px; }
   .key { order: 4; margin: 4px 18px 0; }
   .below { order: 5; margin: 16px 18px 34px; }
   .thread { display: none; }
