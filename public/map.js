@@ -606,7 +606,7 @@
     btn.disabled = true;
     try {
       const res = await fetch("/api/join", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ phone: $("phone").value }) });
-      const out = await res.json();
+      const out = await res.json().catch(() => { throw new Error("Connection blip. Refresh the page and try again."); });
       if (!res.ok) throw new Error(out.error || "That didn't work. Try again.");
       $("qr").innerHTML = out.qr;
       $("join-open").href = out.link;
