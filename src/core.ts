@@ -4,12 +4,14 @@ import { read as readBrain, embed as embedBrain, judge as judgeBrain, type Read,
 import { score, call } from "./score.js";
 import { candidates, nearest, CLOSE, SURE } from "./match.js";
 import { newId, type Idea, type Intro, type Store, type User } from "./store.js";
+import { makeDeck, deckName } from "./deck.js";
 
 /** What the core wants sent. The transport decides how (bubble, tapback, effect, contact card). */
 export type Out =
   | { type: "text"; text: string; effect?: "slam" | "confetti" }
   | { type: "react"; emoji: "love" | "like" }
-  | { type: "contact"; name: string; handle: string; note: string };
+  | { type: "contact"; name: string; handle: string; note: string }
+  | { type: "file"; path: string; name: string; mimeType: string };
 
 export type Deps = {
   store: Store;
@@ -19,6 +21,8 @@ export type Deps = {
   embed?: (text: string) => Promise<number[] | undefined>;
   /** Same problem, same kind of person? Undefined when it could not be asked. */
   judge?: (a: Idea, b: Idea) => Promise<boolean | undefined>;
+  /** Make the pitch deck PDF for an idea and return its path. */
+  deck?: (idea: Idea, facts: string[]) => Promise<string>;
   /** Only texted when it is a real public URL. */
   mapUrl?: string;
   /** Something the map shows has changed. */
@@ -30,7 +34,7 @@ const t = (text: string, effect?: "slam" | "confetti"): Out => ({ type: "text", 
 // Every word the agent can say that the model didn't write. Tone: a sharp friend texting. Lowercase, short, no filler.
 const copy = {
   pitch: "text me an idea or what you're building. i score it out of 100 and connect you w/ the builders closest to it.",
-  how: "score = 10 x problem - 5 x fix, both rated 0-10. the problem counts double, the fix counts against you.\nalso: mine, me, near, delete, private, public, map, stop, forget me.",
+  how: "score = 10 x problem - 5 x fix, both rated 0-10. the problem counts double, the fix counts against you.\nalso: deck, mine, me, near, delete, private, public, map, stop, forget me.",
   // The one question, once. The model picks which; the wording is fixed so it never turns into an interview.
   ask: { college: "you have this problem yourself?", self: "you have this problem yourself?", users: "anyone using it yet?" },
   more: "text the other idea on its own and i'll score that too.",
@@ -58,6 +62,12 @@ const copy = {
   declinedB: "all good. they're not told why.",
   passed: "they're heads down rn. i'll flag the next close one.",
   noMap: "the map isn't public yet. ask whoever showed you this.",
+  deckEarned: "it's a build. here's your deck.",
+  deckEarnedNow: "it's a build now. here's your deck.",
+  deckMaking: "making your deck, one sec.",
+  deckHere: "here's your deck.",
+  deckDown: "deck's not working rn, try again in a min.",
+  deckNone: "no idea to make a deck for yet. text me one.",
 };
 
 // Swapping numbers needs a real yes. "ok" and "k" are acknowledgements, not consent, so they are not on this list.
@@ -95,6 +105,8 @@ const DELETE = /^(?:(?:delete|remove|undo|scratch|drop|erase)(?:\s+(?:that|it|th
 const NEAR = /^(?:(?:who'?s|whos|who is|anyone|anybody|who else)\b.*\b(?:near|close|nearby|similar)\b.*|near|nearby|near me|close to me)$/;
 /** "private: my idea" keeps it off the map from the start. The colon matters: "private equity tracker" is just an idea. */
 const PRIVATE = /^private\s*[:,-]\s*/i;
+/** "deck", "deck 2", "send me the deck", "make me a deck": the override, a deck for any idea at any score. */
+const DECK = /^(?:(?:send|make|give)\s+(?:me\s+)?)?(?:(?:a|the|my)\s+)?(?:pitch\s+)?(?:deck|slides|slide deck)(?:\s+(?:for\s+)?#?(\d+))?(?:\s+(?:pls|please))?$/;
 
 const scoreLine = (i: Pick<Idea, "score" | "problem" | "fix">) => `${i.score}/100\nproblem ${i.problem} · fix ${i.fix}`;
 const count = (s: string) => s.split(/\s+/).filter(Boolean).length;
@@ -195,6 +207,15 @@ export async function handle(sender: string, raw: string, d: Deps, image?: Brain
     return say(t(copy.gone));
   }
 
+  const deck = bare.match(DECK);
+  if (deck) {
+    const mine = store.ideasBy(sender);
+    const idea = deck[1] ? mine[Number(deck[1]) - 1] : (store.idea(user.lastIdea ?? "") ?? mine.at(-1));
+    if (!idea) return say(t(copy.deckNone));
+    await say(t(copy.deckMaking));
+    return sendDeck(idea, sender, copy.deckHere, d);
+  }
+
   const vis = bare.match(/^(?:make it |keep it |go )?(public|private)(?:\s+#?(\d+))?$/);
   if (vis) {
     const mine = store.ideasBy(sender);
@@ -287,21 +308,35 @@ export async function handle(sender: string, raw: string, d: Deps, image?: Brain
   if (idea.private) out.push(t(copy.private));
   // The score goes out first. Working out who is close happens while they are reading it.
   await say(...out);
-  if (idea.private) return;
-  await link(idea, d);
-  d.changed?.();
+  if (!idea.private) {
+    await link(idea, d);
+    d.changed?.();
 
-  // A connection beats a question. The one question only gets asked when nobody is close yet,
-  // and not when this same text already told us who they are.
-  const mayAsk = r.ask && !r.fact && !user.facts.length && !user.askedOn;
-  if (mayAsk && !closeTo(idea, user, store).length) {
-    const question = copy.ask[r.ask as keyof typeof copy.ask];
-    user.pending.push({ kind: "ask", ideaId: idea.id, question });
-    user.askedOn = idea.id;
-    store.saveUser(user);
-    return say(t(question));
+    // A connection beats a question. The one question only gets asked when nobody is close yet,
+    // and not when this same text already told us who they are.
+    const mayAsk = r.ask && !r.fact && !user.facts.length && !user.askedOn;
+    if (mayAsk && !closeTo(idea, user, store).length) {
+      const question = copy.ask[r.ask as keyof typeof copy.ask];
+      user.pending.push({ kind: "ask", ideaId: idea.id, question });
+      user.askedOn = idea.id;
+      store.saveUser(user);
+      await say(t(question));
+    } else await offerIntro(idea, store.user(sender), d);
   }
-  await offerIntro(idea, store.user(sender), d);
+  // A 70 is a build. A build earns a deck, last, so the score and the connection land first.
+  if (s >= 70) await sendDeck(idea, sender, copy.deckEarned, d);
+}
+
+/** Make the deck and text it. A deck that fails says so; it never takes the conversation down with it. */
+async function sendDeck(idea: Idea, to: string, line: string, d: Deps) {
+  let path: string;
+  try {
+    path = await (d.deck ?? makeDeck)(idea, d.store.user(to).facts);
+  } catch (err) {
+    console.error(`deck failed: ${String((err as Error)?.message ?? err).slice(0, 200)}`);
+    return d.send(to, [t(copy.deckDown)]);
+  }
+  await d.send(to, [t(line), { type: "file", path, name: deckName(idea), mimeType: "application/pdf" }]);
 }
 
 // New context landed (an answer to the one question, or more detail). Re-read the same idea in place.
@@ -330,6 +365,7 @@ async function addContext(user: User, idea: Idea, r: Read, d: Deps) {
         ];
   await d.send(user.id, out);
   if (!idea.private && !store.intros().some((x) => x.ideaA === idea.id)) await offerIntro(idea, store.user(user.id), d);
+  if (s >= 70 && before < 70) await sendDeck(idea, user.id, copy.deckEarnedNow, d);
 }
 
 /** Work out which other builders are on the same problem, once, and remember it on both ideas. */

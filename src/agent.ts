@@ -1,6 +1,6 @@
 // The iMessage side. Photon Spectrum's managed cloud line: no Mac relay, no phone number of our own.
 // This file only moves messages; what to say lives in core.ts.
-import { Spectrum, Emoji, contact, type Message, type Space } from "spectrum-ts";
+import { Spectrum, Emoji, attachment, contact, type Message, type Space } from "spectrum-ts";
 import { imessage, effect } from "spectrum-ts/providers/imessage";
 import { handle, type Deps, type Out } from "./core.js";
 import type { BrainContext } from "./brain.js";
@@ -50,6 +50,10 @@ export async function startAgent(opts: {
       if (sent++) {
         await space.startTyping().catch(() => {});
         await pause(PACE_MS);
+      }
+      if (o.type === "file") {
+        await space.send(attachment(o.path, { mimeType: o.mimeType, name: o.name }));
+        continue;
       }
       if (o.type === "contact") {
         const [first, ...rest] = o.name.split(" ");

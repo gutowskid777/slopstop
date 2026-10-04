@@ -18,7 +18,9 @@ const show = (o: Out) =>
     ? o.text + (o.effect ? `   [${o.effect}]` : "")
     : o.type === "react"
       ? `[tapback: ${o.emoji}]`
-      : `[contact card: ${o.name}, ${o.handle}. ${o.note}]`;
+      : o.type === "file"
+        ? `[file: ${o.name} at ${o.path}]`
+        : `[contact card: ${o.name}, ${o.handle}. ${o.note}]`;
 const print = (to: string, out: Out[]) => {
   console.log(`\n--- to ${to}`);
   for (const o of out) console.log(show(o) + "\n");

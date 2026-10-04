@@ -25,6 +25,7 @@ function world(brain: (text: string) => Partial<Read> = () => ({}), same = true)
     brain: async (t: string) => read(brain(t)),
     embed: async () => undefined,
     judge: async () => same,
+    deck: async () => "/tmp/test-deck.pdf",
   };
   const text = (from: string, body: string) => handle(from, body, deps);
   const said = (to: string) => sent.filter((s) => s.to === to).flatMap((s) => s.out).map((o) => (o.type === "text" ? o.text : `[${o.type}]`)).join("\n");
@@ -199,4 +200,39 @@ test("me reads back what it knows, and me: replaces it and re-reads the last ide
   assert.match(w.said("+15550001"), /80\/100 now, was 60/);
   await w.text("+15550001", "me");
   assert.match(w.said("+15550001"), /what i know: cornell sophomore, i run a club\./);
+});
+
+test("a 70+ idea earns a deck, last, after the score and the connection", async () => {
+  const w = world(() => ({ problem: 9, fix: 2 }));
+  const decks: string[] = [];
+  const deps = { store: w.store, send: async (to: string, out: Out[]) => void w.sent.push({ to, out }), brain: async () => read({ problem: 9, fix: 2 }), embed: async () => undefined, judge: async () => true, deck: async (i: { id: string }) => (decks.push(i.id), `/tmp/${i.id}.pdf`) };
+  await handle("+15550001", "a text line for open library seats", deps);
+  const out = w.sent.filter((s) => s.to === "+15550001").flatMap((s) => s.out);
+  assert.equal(decks.length, 1);
+  assert.match(out.map((o) => (o.type === "text" ? o.text : `[${o.type}]`)).join("\n"), /^\[react\]\n80\/100[\s\S]*nobody's near this yet[\s\S]*it's a build\. here's your deck\.\n\[file\]$/);
+  const file = out.at(-1);
+  assert.ok(file?.type === "file" && file.mimeType === "application/pdf" && /pitch deck\.pdf$/.test(file.name));
+});
+
+test("under 70 there is no deck until they text deck, and deck 2 picks the second idea", async () => {
+  const w = world(() => ({ problem: 6, fix: 3 }));
+  const decks: string[] = [];
+  const deps = { store: w.store, send: async (to: string, out: Out[]) => void w.sent.push({ to, out }), brain: async (t: string) => read({ problem: 6, fix: 3, title: t.slice(0, 20) }), embed: async () => undefined, judge: async () => false, deck: async (i: { title: string }) => (decks.push(i.title), "/tmp/x.pdf") };
+  await handle("+15550002", "first idea about seats", deps);
+  await handle("+15550002", "second idea about laundry", deps);
+  assert.equal(decks.length, 0);
+  await handle("+15550002", "deck", deps);
+  await handle("+15550002", "deck 1", deps);
+  assert.deepEqual(decks, ["second idea about la", "first idea about sea"]);
+  assert.match(w.last("+15550002"), /^here's your deck\.\n\[file\]$/);
+});
+
+test("a deck that fails says so and the conversation keeps going", async () => {
+  const w = world();
+  const deps = { store: w.store, send: async (to: string, out: Out[]) => void w.sent.push({ to, out }), brain: async () => read({}), embed: async () => undefined, judge: async () => false, deck: async () => { throw new Error("chrome died"); } };
+  await handle("+15550003", "deck", deps);
+  assert.match(w.last("+15550003"), /no idea to make a deck for yet/);
+  await handle("+15550003", "an idea about seats", deps);
+  await handle("+15550003", "send me the deck", deps);
+  assert.match(w.last("+15550003"), /deck's not working rn, try again in a min\./);
 });
