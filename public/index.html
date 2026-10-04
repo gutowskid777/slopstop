@@ -7,67 +7,75 @@
 <meta name="description" content="Text it an idea, or what you're building. It scores it out of 100 instantly, then connects you to the builders closest to it.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/map.css">
 </head>
 <body>
 <main class="shell">
-  <section class="panel" aria-label="Text it">
-    <a class="mark" href="/" id="name">Bearing</a>
-    <h1>Text it an idea.</h1>
-    <p class="lede">Or what you're building. It scores it out of 100 instantly, then connects you to the builders closest to it.</p>
-
-    <form class="join" id="join" novalidate>
-      <label for="phone">Your number</label>
-      <div class="join-row">
-        <input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="607 555 0134" required>
-        <button type="submit" id="join-go">Text it</button>
-      </div>
-      <p class="join-note" id="join-note" role="status" aria-live="polite"></p>
-      <div class="join-done" id="join-done" hidden>
-        <div class="qr" id="qr" aria-hidden="true"></div>
-        <div>
-          <p class="join-how" id="join-how"></p>
-          <a class="join-open" id="join-open" href="#">Open Messages</a>
-        </div>
-      </div>
-    </form>
-
-    <div class="thread" id="thread" aria-label="What a text looks like">
-      <p class="me">my idea: a text line that chases late invoices for freelancers</p>
-      <p class="it">80/100<br>problem 9&nbsp;&nbsp;·&nbsp;&nbsp;fix 2</p>
-      <p class="it">build it. late pay hurts every month and a text costs nothing to try.</p>
-    </div>
-
-    <article class="sign" id="sign" aria-live="polite" hidden>
-      <button class="sign-close" id="sign-close" type="button" aria-label="Close">Close</button>
-      <p class="sign-when" id="sign-when"></p>
-      <p class="sign-score"><span id="sign-score">0</span><small>/100</small></p>
-      <h2 id="sign-title"></h2>
-      <dl class="sign-inputs">
-        <div><dt>problem</dt><dd id="sign-problem">0</dd></div>
-        <div><dt>fix</dt><dd id="sign-fix">0</dd></div>
-      </dl>
-      <p class="sign-call" id="sign-call"></p>
-      <p class="sign-where"><span class="blaze" id="sign-blaze"></span><span id="sign-where"></span></p>
-      <p class="sign-near" id="sign-near"></p>
-    </article>
-
-    <footer class="foot">
+  <div class="core" id="core">
+    <header class="top">
+      <a class="mark" href="/" id="name">Bearing</a>
       <p class="tally" id="tally"></p>
-      <a href="/graph">How the score works</a>
-    </footer>
-  </section>
+    </header>
 
-  <section class="mapwrap" aria-label="The branch map">
-    <div class="stage" id="stage">
-      <svg id="map" role="img" aria-label="Ideas sorted into branches. Higher on the map means a higher score."></svg>
-    </div>
-    <div class="gutter" id="gutter" aria-hidden="true"></div>
-    <ul class="key" aria-label="Map key">
-      <li><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/></svg>texted in</li>
-      <li id="key-sample"><svg class="hollow" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/></svg>sample</li>
+    <section class="hub" id="hub" aria-label="Text it">
+      <h1>Text it an idea.</h1>
+      <p class="lede">Or what you're building. It scores it out of 100 instantly, then connects you to the builders closest to it.</p>
+      <form class="join" id="join" novalidate>
+        <label for="phone">Your number</label>
+        <div class="join-row">
+          <input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="607 555 0134" required>
+          <button type="submit" id="join-go">Text it</button>
+        </div>
+        <p class="join-note" id="join-note" role="status" aria-live="polite"></p>
+        <div class="join-done" id="join-done" hidden>
+          <div class="qr" id="qr" aria-hidden="true"></div>
+          <div>
+            <p class="join-how" id="join-how"></p>
+            <a class="join-open" id="join-open" href="#">Open Messages</a>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <ul class="key" aria-label="How to read the map">
+      <li class="k-build"><i></i>70 and up, build it</li>
+      <li class="k-sharp"><i></i>40 and up, sharpen it</li>
+      <li class="k-drop"><i></i>under 40, drop it or flip it</li>
+      <li class="k-real"><i></i>texted in</li>
+      <li class="k-sample" id="key-sample"><i></i>sample</li>
     </ul>
+
+    <div class="below">
+      <div class="thread" id="thread" aria-label="An example of the texts">
+        <p class="me">a number you text when you walk home late. it checks you got there</p>
+        <p class="it">80/100<br>problem 9&nbsp;&nbsp;·&nbsp;&nbsp;fix 2</p>
+        <p class="it">build it. real fear, and a text asks nothing new of you.</p>
+        <p class="it">one builder's close. want an intro?</p>
+      </div>
+
+      <article class="sign" id="sign" aria-live="polite" hidden>
+        <button class="sign-close" id="sign-close" type="button">Close</button>
+        <p class="sign-when" id="sign-when"></p>
+        <h2 id="sign-title"></h2>
+        <p class="sign-score"><span id="sign-score">0</span><small>/100</small><b id="sign-call"></b></p>
+        <dl class="sign-inputs">
+          <div><dt>problem</dt><dd id="sign-problem">0</dd></div>
+          <div><dt>fix</dt><dd id="sign-fix">0</dd></div>
+        </dl>
+        <p class="sign-where" id="sign-where"></p>
+        <p class="sign-near" id="sign-near"></p>
+      </article>
+    </div>
+
+    <footer class="foot"><a href="/graph">How the score works</a></footer>
+  </div>
+
+  <section class="stage" id="stage" aria-label="The branch map">
+    <div class="canvas" id="canvas">
+      <svg id="wires" aria-hidden="true"></svg>
+      <div id="nodes"></div>
+    </div>
     <p class="empty" id="empty" hidden>No ideas on the map yet. Text the first one.</p>
   </section>
 </main>

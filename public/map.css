@@ -1,173 +1,178 @@
-/* A trail map. Pale topo-green paper, ink, and trail-blaze paint. Height on the map is the score. */
+/* Bearing. White paper, ink lines and one red: a red line is an idea worth building. */
 :root {
-  --paper: #e3ebd8;
-  --sheet: #f5f8ee;
-  --ink: #15251c;
-  --soft: #51614f;
-  --contour: #c3d0b2;
-  --index: #a9ba95;
-  --blaze: #f2500a;
-  --line: #15251c1f;
-  --font: "Overpass", "Helvetica Neue", Arial, sans-serif;
+  --paper: #fff;
+  --wash: #f1f2f4;
+  --ink: #101114;
+  --mute: #686c75;
+  --faint: #d3d6dc; /* the lines of ideas to drop */
+  --red: #e4002b;
+  --blue: #0a84ff; /* the iMessage bubble. Only the example texts use it. */
+  --bubble: #e9e9eb;
+  --font: "Archivo", "Helvetica Neue", Arial, sans-serif;
 }
-* { box-sizing: border-box; margin: 0; }
-html, body { height: 100%; }
-body { background: var(--paper); color: var(--ink); font-family: var(--font); font-size: 17px; line-height: 1.4; -webkit-font-smoothing: antialiased; }
-a { color: inherit; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--paper); color: var(--ink); font-family: var(--font); -webkit-font-smoothing: antialiased; }
 button, input { font: inherit; color: inherit; }
-:focus-visible { outline: 3px solid var(--blaze); outline-offset: 2px; }
+a { color: inherit; }
+:focus-visible { outline: 2.5px solid var(--ink); outline-offset: 2px; }
 
-/* One bounded row: neither column may push the page taller than the screen. */
-.shell { display: grid; grid-template-columns: minmax(300px, 344px) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 100vh; height: 100dvh; overflow: hidden; }
+.shell { position: relative; height: 100dvh; overflow: hidden; }
 
-/* ---------- the panel ---------- */
-.panel { background: var(--sheet); border-right: 2px solid var(--ink); padding: 24px 24px 18px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; min-height: 0; }
-.mark { font-weight: 900; font-size: 20px; letter-spacing: -0.01em; text-decoration: none; display: inline-flex; align-items: center; gap: 9px; align-self: flex-start; }
-.mark::before { content: ""; width: 11px; height: 17px; background: var(--blaze); border-radius: 2px; }
-h1 { font-weight: 900; font-size: clamp(40px, min(4.3vw, 8.4vh), 60px); line-height: 0.94; letter-spacing: -0.035em; margin-top: 4px; }
-.lede { font-size: 18px; line-height: 1.32; color: var(--soft); max-width: 24em; }
+/* ---- the middle column: the name, the card the lines leave from, and one idea up close */
+.core {
+  position: absolute; z-index: 2; top: 0; bottom: 0; left: 50%; width: 296px; margin-left: -148px;
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
+  pointer-events: none;
+}
+.core > * { pointer-events: auto; grid-column: 1; }
+.top { grid-row: 1; align-self: start; margin-top: 18px; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.mark { font-weight: 800; font-stretch: 112%; font-size: 23px; letter-spacing: -0.015em; text-decoration: none; }
+.tally { margin: 0; font-size: 15px; font-weight: 700; font-stretch: 86%; white-space: nowrap; }
 
-.join label { display: block; font-weight: 800; font-size: 15px; margin-bottom: 6px; }
+.key { grid-row: 1; align-self: start; margin: 62px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 5px 14px; font-size: 13.5px; font-stretch: 86%; color: var(--mute); }
+.key li { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+.key i { flex: none; width: 20px; height: 3px; border-radius: 2px; background: var(--faint); }
+.key .k-build i { background: var(--red); }
+.key .k-sharp i { background: var(--ink); }
+.key .k-build, .key .k-sharp, .key .k-drop { flex-basis: 100%; }
+.key .k-real i, .key .k-sample i { width: 10px; height: 10px; border-radius: 50%; background: var(--ink); }
+.key .k-sample i { background: none; box-shadow: inset 0 0 0 2.5px var(--ink); }
+
+.hub { grid-row: 2; background: var(--ink); color: #fff; border-radius: 24px; padding: 22px 20px 20px; }
+.hub :focus-visible { outline-color: #fff; }
+.hub h1 { margin: 0; font-size: 40px; line-height: 0.96; font-weight: 800; font-stretch: 88%; letter-spacing: -0.02em; }
+.lede { margin: 10px 0 16px; font-size: 15px; line-height: 1.34; color: #c8cad0; }
+.join label { display: block; margin-bottom: 6px; font-size: 13px; color: #a4a7af; }
 .join-row { display: flex; gap: 8px; }
-.join input { flex: 1; min-width: 0; height: 54px; padding: 0 14px; font-size: 20px; font-weight: 600; background: #fff; border: 2px solid var(--ink); border-radius: 6px; }
-.join input::placeholder { color: #9aa795; font-weight: 400; }
-.join button { height: 54px; padding: 0 20px; font-weight: 900; font-size: 19px; background: var(--blaze); color: #fff; border: 2px solid var(--ink); border-radius: 6px; cursor: pointer; white-space: nowrap; }
-.join button:hover { background: #d94300; }
-.join button:disabled { opacity: 0.6; cursor: progress; }
-.join-note { font-size: 15px; color: var(--soft); margin-top: 8px; }
+.join input { flex: 1; min-width: 0; height: 46px; padding: 0 13px; border: 0; border-radius: 12px; background: #fff; color: var(--ink); font-size: 17px; font-weight: 600; }
+.join input::placeholder { color: #a4a7af; font-weight: 500; }
+.join button { flex: none; height: 46px; padding: 0 17px; border: 0; border-radius: 12px; background: var(--red); color: #fff; font-size: 16px; font-weight: 800; cursor: pointer; }
+.join button:disabled { opacity: 0.6; cursor: default; }
+.join-note { margin: 8px 0 0; font-size: 13.5px; color: #c8cad0; }
 .join-note:empty { display: none; }
-.join-note.bad { color: #a3210b; font-weight: 600; }
-.join-done { margin-top: 10px; }
-.join-done[hidden] { display: none; }
-.qr { width: 204px; height: 204px; background: #fff; border: 2px solid var(--ink); border-radius: 6px; padding: 10px; margin-bottom: 10px; }
-.qr[hidden] { display: none; }
-/* While a code is up, it owns the panel. */
-.panel.joining .thread, .panel.joining .sign { display: none; }
-.qr svg { width: 100%; height: 100%; display: block; }
-.join-how { font-size: 18px; font-weight: 700; line-height: 1.3; }
-.join-how b { font-weight: 900; font-size: 26px; display: block; letter-spacing: -0.01em; white-space: nowrap; }
-.join-open { display: inline-block; margin-top: 8px; font-weight: 800; font-size: 16px; }
+.join-note.bad { color: #ff8e9c; }
+.join-done { margin-top: 14px; display: grid; gap: 10px; justify-items: center; text-align: center; }
+.qr { width: 100%; max-width: 232px; padding: 13px; border-radius: 14px; background: #fff; }
+.qr svg { display: block; width: 100%; height: auto; }
+.join-how { margin: 0 0 4px; font-size: 15px; line-height: 1.3; }
+.join-how b { white-space: nowrap; }
+.join-open { font-weight: 700; }
+.core.joining .lede, .core.joining .below { display: none; }
+.core.joining .join { margin-top: 16px; }
 
-/* What the texts look like, shown until the first real idea lands. Messages' own colors, because this is Messages. */
-.thread { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
-.thread[hidden] { display: none; }
-.thread p { max-width: 86%; padding: 9px 14px; border-radius: 19px; font-size: 16.5px; line-height: 1.28; }
-.thread .me { align-self: flex-end; background: #0b84fe; color: #fff; border-bottom-right-radius: 6px; margin-bottom: 4px; }
-.thread .it { align-self: flex-start; background: #e4e6e0; border-bottom-left-radius: 6px; font-weight: 600; }
+.below { grid-row: 3; align-self: start; margin-top: 14px; }
+.thread { display: grid; gap: 5px; }
+.thread p { margin: 0; max-width: 88%; padding: 8px 12px; border-radius: 18px; font: 14.5px/1.28 -apple-system, "SF Pro Text", "Helvetica Neue", Arial, sans-serif; }
+.thread .me { justify-self: end; margin-bottom: 3px; background: var(--blue); color: #fff; border-bottom-right-radius: 5px; }
+.thread .it { justify-self: start; background: var(--bubble); color: #000; }
+.thread .it:last-child { border-bottom-left-radius: 5px; }
 
-/* The sign: one idea, read like a trail marker. */
-.sign { position: relative; border: 2px solid var(--ink); border-radius: 8px; background: #fff; padding: 14px 18px; }
-.sign[hidden] { display: none; }
-.sign-close { display: none; }
-.sign-when { font-size: 14px; font-weight: 800; color: var(--blaze); }
-.sign-score { font-weight: 900; font-size: clamp(60px, 10vh, 92px); line-height: 0.9; letter-spacing: -0.05em; margin-top: 4px; font-variant-numeric: tabular-nums; }
-.sign-score small { font-size: 26px; font-weight: 800; letter-spacing: 0; color: var(--soft); margin-left: 4px; }
-.sign h2 { font-weight: 800; font-size: 22px; line-height: 1.12; letter-spacing: -0.015em; margin-top: 8px; }
-.sign-inputs { display: flex; gap: 26px; margin-top: 10px; }
-.sign-inputs dt { font-size: 14px; color: var(--soft); font-weight: 600; }
-.sign-inputs dd { font-weight: 900; font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; }
-.sign-call { font-weight: 800; font-size: 17px; margin-top: 8px; }
-.sign-where { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--soft); margin-top: 6px; font-weight: 600; }
-.blaze { width: 9px; height: 14px; border-radius: 2px; background: var(--ink); flex: none; }
-.sign-near { font-size: 15px; font-weight: 800; margin-top: 6px; }
+.sign { position: relative; padding: 15px 17px 16px; border: 2.5px solid var(--ink); border-radius: 20px; background: var(--paper); }
+.sign-close { position: absolute; top: 10px; right: 10px; padding: 4px 10px; border: 0; border-radius: 99px; background: var(--wash); font-size: 13px; font-weight: 600; cursor: pointer; }
+.sign-when { margin: 0 0 3px; font-size: 13px; color: var(--mute); }
+.sign h2 { margin: 0 0 10px; padding-right: 56px; font-size: 22px; line-height: 1.08; font-weight: 800; font-stretch: 90%; }
+.sign-score { margin: 0; display: flex; align-items: baseline; font-size: 60px; line-height: 0.9; font-weight: 800; letter-spacing: -0.035em; font-variant-numeric: tabular-nums; }
+.sign-score small { margin-left: 3px; font-size: 19px; font-weight: 700; letter-spacing: 0; color: var(--mute); }
+.sign-score b { align-self: center; margin-left: auto; padding: 6px 11px; border-radius: 99px; background: var(--wash); font-size: 15px; line-height: 1; letter-spacing: 0; }
+.sign[data-band="build"] .sign-score span { color: var(--red); }
+.sign[data-band="build"] .sign-score b { background: var(--red); color: #fff; }
+.sign[data-band="drop"] .sign-score span { color: var(--mute); }
+.sign-inputs { display: flex; gap: 18px; margin: 12px 0 0; }
+.sign-inputs div { display: flex; align-items: baseline; gap: 6px; }
+.sign-inputs dt { font-size: 14px; color: var(--mute); }
+.sign-inputs dd { margin: 0; font-size: 19px; font-weight: 800; }
+.sign-where, .sign-near { margin: 8px 0 0; font-size: 14px; color: var(--mute); }
+.sign-near { color: var(--ink); font-weight: 600; }
 .sign-near:empty { display: none; }
 
-.foot { margin-top: auto; padding-top: 10px; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14.5px; color: var(--soft); }
-.foot a { font-weight: 800; color: var(--ink); white-space: nowrap; }
+.foot { position: absolute; left: 0; right: 0; bottom: 16px; font-size: 14px; font-weight: 600; text-align: center; }
 
-/* ---------- the map ---------- */
-.mapwrap { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
-.stage { height: 100%; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
-#map { display: block; }
-#map text { font-family: var(--font); fill: var(--ink); }
+/* ---- the map */
+.stage { position: absolute; z-index: 1; inset: 0; overflow: hidden auto; }
+.canvas { position: relative; width: 100%; }
+#wires { position: absolute; left: 0; top: 0; overflow: visible; }
+#nodes { position: absolute; inset: 0; }
+.empty { position: absolute; left: 28px; top: 22px; margin: 0; color: var(--mute); }
 
-/* The elevation scale stays put while the map pans under it. Sized to be read from a meter away. */
-.gutter { position: absolute; left: 0; top: 0; bottom: 0; width: 0; pointer-events: none; }
-.gutter span { position: absolute; left: 0; margin-top: -27px; padding: 2px 8px 1px 12px; border-radius: 0 4px 4px 0; background: #e8efdeeb; font-size: 15px; font-weight: 700; line-height: 1.35; color: #5d6f52; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.gutter span.call { margin-top: -33px; font-size: 20px; font-weight: 900; color: var(--ink); letter-spacing: -0.01em; }
-
-/* The map key sits in the band above 100, where no waypoint can be. */
-.key { position: absolute; top: 9px; right: 14px; display: flex; gap: 18px; list-style: none; padding: 0; font-size: 15px; font-weight: 700; color: var(--ink); pointer-events: none; }
-.key li { display: flex; align-items: center; gap: 6px; }
-.key li[hidden] { display: none; }
-.key svg { width: 18px; height: 18px; fill: var(--ink); stroke: var(--ink); stroke-width: 2.5; }
-.key svg.hollow { fill: var(--sheet); }
-.empty { position: absolute; inset: 0; display: grid; place-items: center; font-size: 26px; font-weight: 800; color: var(--soft); text-align: center; padding: 24px; pointer-events: none; }
-.empty[hidden] { display: none; }
-
-/* The land: lowland, the middle band from 40, and summits past 70 in orange. */
-.land { fill: #b7c7a0; }
-.mid { fill: #cddab9; }
-.high { fill: var(--blaze); opacity: 0.56; }
-.contour { fill: none; stroke: #15251c; stroke-opacity: 0.13; stroke-width: 1; }
-.contour.index { stroke-opacity: 0.22; stroke-width: 1.3; }
-.band-edge { fill: none; stroke: #15251c; stroke-opacity: 0.5; stroke-width: 1.5; }
-.ridge { fill: none; stroke: var(--ink); stroke-width: 2.75; stroke-linejoin: round; stroke-linecap: round; }
-.bar { fill: none; stroke: #15251c; stroke-opacity: 0.45; stroke-width: 1.5; }
-
-.casing { fill: none; stroke: #f5f8ee; stroke-width: 10; stroke-linecap: round; stroke-linejoin: round; }
-.trail { fill: none; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
-.trunk-name { font-size: 20px; font-weight: 900; letter-spacing: -0.01em; }
-.branch-name { font-size: 16px; font-weight: 800; }
-
-.wp { cursor: pointer; }
-.wp .hit { fill: transparent; }
-.wp .dot { stroke: #f5f8ee; stroke-width: 3; paint-order: stroke; }
-.wp.sample .dot { stroke-width: 3; paint-order: normal; }
-.wp .num { font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
-.wp .ttl { font-weight: 700; }
-/* A map label's casing: it lifts the words off the ridge line and the contours behind them. */
-.wp text { paint-order: stroke; stroke: #eef3e6; stroke-width: 5.5; stroke-linejoin: round; }
-.wp:focus-visible { outline: none; }
-.wp:focus-visible .halo, .wp.on .halo { opacity: 1; }
-.halo { fill: none; stroke: var(--ink); stroke-width: 2.5; opacity: 0; }
-
-.here { fill: none; stroke: var(--blaze); stroke-width: 3; transform-box: fill-box; transform-origin: center; animation: here 2.4s ease-out infinite; pointer-events: none; }
-.here-casing { fill: none; stroke: #fff; stroke-width: 7; pointer-events: none; }
-.here-core { fill: none; stroke: var(--blaze); stroke-width: 4; pointer-events: none; }
-@keyframes here { 0% { transform: scale(0.6); opacity: 1; } 100% { transform: scale(2.6); opacity: 0; } }
-.wp.landing { animation: land 900ms cubic-bezier(0.2, 1.5, 0.4, 1) both; transform-box: fill-box; transform-origin: 8px 50%; }
-@keyframes land { from { transform: translateY(-46px) scale(0.6); opacity: 0; } to { transform: none; opacity: 1; } }
-.link-casing { fill: none; stroke: #fff; stroke-width: 6; stroke-linecap: round; }
-.link { fill: none; stroke: var(--blaze); stroke-width: 3; stroke-dasharray: 1 8; stroke-linecap: round; }
-
-/* The one opening move: the trails grow up from their blazes and the waypoints appear as they are reached. */
-.grow { stroke-dasharray: 1; stroke-dashoffset: 1; animation: grow 1300ms cubic-bezier(0.3, 0.6, 0.2, 1) forwards; }
+/* One line per idea. Drawn in three layers so red always rides on top. */
+.w { fill: none; stroke: var(--c); stroke-width: var(--sw, 2.4px); transition: opacity 0.18s; }
+.w.build { --c: var(--red); }
+.w.sharp { --c: #1c1d21; }
+.w.drop { --c: var(--faint); }
+.w.grow { stroke-dasharray: 1; stroke-dashoffset: 1; animation: grow 1s cubic-bezier(0.6, 0, 0.2, 1) forwards; }
 @keyframes grow { to { stroke-dashoffset: 0; } }
-.wp.rise { animation: rise 420ms ease-out both; }
-@keyframes rise { from { opacity: 0; } to { opacity: 1; } }
 
-@media (prefers-reduced-motion: reduce) {
-  .here { animation: none; opacity: 0.5; }
-  .wp.landing, .wp.rise { animation: none; }
-  .grow { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; }
+#nodes > * { transition: opacity 0.18s; }
+.focus .w:not(.lit) { opacity: 0.13; }
+.focus #nodes > :not(.lit) { opacity: 0.26; }
+.rise { animation: rise 0.45s ease-out backwards; }
+@keyframes rise { from { opacity: 0; } }
+
+/* Trunk and branch names sit on their own bundle of lines, which breaks behind the word. */
+.chip { position: absolute; transform: translate(-50%, -50%); padding: 3px 7px; border-radius: 8px; background: var(--paper); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.12; cursor: default; user-select: none; }
+.chip.t { font-size: var(--tf, 21px); font-weight: 800; font-stretch: 78%; }
+.chip.b { font-size: var(--bf, 15px); font-weight: 600; font-stretch: 78%; }
+
+.leaf { position: absolute; display: flex; align-items: center; gap: 6px; height: var(--row, 24px); margin-top: calc(var(--row, 24px) / -2); padding: 0; border: 0; background: none; color: var(--ink); font-size: var(--fs, 14.5px); font-stretch: 84%; line-height: 1; white-space: nowrap; cursor: pointer; }
+.leaf.l { flex-direction: row-reverse; }
+.leaf .dot { position: relative; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 2px var(--paper); }
+.leaf.sample .dot { background: var(--paper); box-shadow: inset 0 0 0 2.5px var(--c), 0 0 0 2px var(--paper); }
+.leaf .num { flex: none; min-width: 1.75em; padding: 2px 0; border-radius: 6px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
+.leaf .ttl { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 500; padding: 2px 0; }
+.leaf.build { --c: var(--red); }
+.leaf.sharp { --c: var(--ink); }
+.leaf.drop { --c: #b9bcc4; }
+.leaf.build .num { padding: 2px 4px; background: var(--red); color: #fff; }
+.leaf.drop .num, .leaf.drop .ttl { color: #8b8f98; }
+.leaf.real .ttl { font-weight: 800; }
+.leaf.on .ttl { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+/* The newest idea that was texted in keeps a slow ring, so a judge can find "the one that just landed". */
+.leaf.here .dot::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--c); animation: ping 2.2s ease-out infinite; }
+.leaf.landing { animation: land 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) backwards; }
+@keyframes ping { from { transform: scale(0.55); opacity: 0.95; } to { transform: scale(1.9); opacity: 0; } }
+@keyframes land { from { opacity: 0; transform: scale(0.6); } }
+
+/* ---- smaller laptops: a narrower card leaves the branches more room */
+@media (min-width: 1021px) and (max-width: 1380px) {
+  .core { width: 264px; margin-left: -132px; }
+  .hub { padding: 20px 18px 18px; }
+  .hub h1 { font-size: 35px; }
+  .lede { font-size: 14.5px; }
 }
 
-/* ---------- phone ---------- */
-@media (max-width: 820px) {
+/* ---- short screens: the example gives way first */
+@media (min-width: 1021px) and (max-height: 760px) { .thread { display: none; } }
+
+/* ---- phone and narrow windows: the card on top, then one trunk after another */
+@media (max-width: 1020px) {
   html, body { height: auto; }
-  .shell { display: block; height: auto; overflow: visible; }
-  .panel { border-right: 0; border-bottom: 2px solid var(--ink); padding: 18px 16px 16px; gap: 12px; overflow: visible; }
-  h1 { font-size: 46px; margin-top: 2px; }
-  .lede { font-size: 17px; }
-  .mapwrap { height: 600px; border-bottom: 2px solid var(--ink); }
+  .shell { height: auto; min-height: 100dvh; overflow: visible; max-width: 620px; margin: 0 auto; }
+  .core { position: static; display: block; width: auto; margin: 0; padding: 14px 16px 0; pointer-events: auto; }
+  .top { margin: 0 0 12px; }
+  .hub h1 { font-size: 38px; }
+  .key { margin: 14px 2px 0; font-size: 14px; }
+  .key .k-build, .key .k-sharp, .key .k-drop { flex-basis: auto; }
+  .below { margin: 0; }
   .thread { display: none; }
-  .gutter span { font-size: 13px; margin-top: -24px; padding-left: 8px; }
-  .gutter span.call { font-size: 15px; margin-top: -27px; }
-  .key { font-size: 13px; gap: 12px; right: 10px; }
-  .trunk-name { font-size: 18px; }
-  .branch-name { font-size: 14.5px; }
-  .foot { margin-top: 2px; }
-  /* On a phone the sign is a sheet over the bottom of the map. */
-  .sign { position: fixed; left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 5; margin: 0; padding: 14px 16px; box-shadow: 0 10px 0 -6px var(--ink), 0 18px 40px #15251c40; display: grid; grid-template-columns: auto 1fr; column-gap: 16px; align-items: start; }
-  .sign[hidden] { display: none; }
-  .sign-when { grid-column: 1 / -1; }
-  .sign-score { font-size: 72px; grid-row: 2 / span 3; margin: 2px 0 0; }
-  .sign-score small { display: block; font-size: 18px; margin: 4px 0 0 4px; }
-  .sign h2 { font-size: 19px; margin-top: 4px; padding-right: 52px; }
-  .sign-inputs { margin-top: 6px; gap: 18px; }
-  .sign-inputs dd { font-size: 24px; }
-  .sign-call { margin-top: 6px; font-size: 15.5px; }
-  .sign-where, .sign-near { grid-column: 1 / -1; }
-  .sign-close { display: block; position: absolute; top: 10px; right: 10px; background: none; border: 0; font-weight: 800; font-size: 15px; padding: 8px; text-decoration: underline; cursor: pointer; }
+  .sign { position: fixed; z-index: 5; left: 12px; right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); max-width: 596px; margin: 0 auto; box-shadow: 0 14px 44px rgba(16, 17, 20, 0.24); }
+  .foot { position: static; margin: 0; padding: 4px 0 28px; }
+  .stage { position: static; overflow: visible; padding: 18px 0 8px; }
+  .empty { position: static; padding: 0 18px; }
+  .canvas.tall .chip { transform: translateY(-50%); padding: 0 3px; margin-left: -3px; background: none; max-width: calc(100% - 36px); }
+  .canvas.tall .chip.t { font-size: 24px; }
+  .canvas.tall .chip.b { font-size: 14.5px; color: var(--mute); }
+  .shell { display: flex; flex-direction: column; }
+  .core { display: contents; }
+  .top { order: 1; padding: 14px 16px 0; }
+  .hub { order: 2; margin: 0 16px; }
+  .key { order: 3; margin: 14px 18px 0; }
+  .stage { order: 4; }
+  .below { order: 5; }
+  .foot { order: 6; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }

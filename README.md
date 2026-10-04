@@ -36,10 +36,12 @@ A photo of a whiteboard works as an idea. A thumbs-up on the intro question coun
 
 ## The map
 
-`/` is the branch map: every trunk is a trail, every branch a fork, every idea a waypoint, and **height is the
-score**. It updates the moment a text is scored. Titles and scores only, never who. Hollow markers are samples.
+`/` is the branch map. The dark card in the middle is where the texts come in, and every idea is one line: it
+leaves the card bundled with its trunk, splits off with its branch and ends at the idea. **A red line is an idea
+worth building** (70 and up), black is one to sharpen, gray is one to drop. It updates the moment a text is scored.
+Titles and scores only, never who. Hollow dots are samples.
 
-`/graph` is the score itself as terrain: problem against fix, with two pins to drag.
+`/graph` is the score itself: problem against fix, with two pins to drag.
 
 ## Run it
 
@@ -47,7 +49,7 @@ score**. It updates the moment a text is scored. Titles and scores only, never w
 npm i
 cp .env.example .env     # Photon + Gemini keys
 npm run doctor           # checks the brain, the line and who can text it
-npm run seed             # sample ideas so the map has terrain
+npm run seed             # sample ideas so the map has branches before the first text
 npm start                # the iMessage agent + the map on http://localhost:1290
 npm run demo             # the same, and keeps the Mac awake while it runs
 npm run stop             # ends it (it refuses to run twice: two copies would both answer every text)

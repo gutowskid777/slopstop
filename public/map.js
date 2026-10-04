@@ -1,271 +1,271 @@
-// The branch map. Each trunk is a trail, each branch a fork, each idea a waypoint.
-// Height is the score, so every branch is a mountain and its best idea is the summit.
+// The branch map. The dark card in the middle is where the texts come in. Every idea is one line:
+// it leaves the card bundled with its trunk, splits off with its branch and ends at the idea.
+// A red line is an idea worth building, so the whole map reads as "follow the red".
 (() => {
   const NS = "http://www.w3.org/2000/svg";
-  // Trail-blaze paint. Orange is kept for "you are here", the summits and the button.
-  const TRAILS = ["#7b2d8e", "#0b6e66", "#8a5a00", "#a61e4d", "#5c4a1e", "#3d5a14", "#9c3b12", "#3a3a3a"];
   const CALLS = [
-    [70, "build it"],
-    [40, "sharpen it"],
-    [0, "drop it or flip it"],
+    [70, "build it", "build"],
+    [40, "sharpen it", "sharp"],
+    [0, "drop it or flip it", "drop"],
   ];
+  const call = (s) => CALLS.find(([min]) => s >= min);
   const $ = (id) => document.getElementById(id);
-  const el = (tag, attrs = {}, text) => {
+  const svg = (tag, attrs = {}) => {
     const e = document.createElementNS(NS, tag);
     for (const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  };
+  const node = (tag, cls, text) => {
+    const e = document.createElement(tag);
+    e.className = cls;
     if (text != null) e.textContent = text;
     return e;
   };
-  const phone = () => matchMedia("(max-width: 820px)").matches;
+  const r = (n) => Math.round(n * 10) / 10;
+  const tall = () => matchMedia("(max-width: 1020px)").matches;
+  // ?static draws the finished map with no motion (screenshots, slow machines).
+  const still = new URLSearchParams(location.search).has("static") || matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   let data = null;
   let known = null; // ids already drawn, so only a real arrival animates
-  let picked = null; // the waypoint someone tapped; null means follow the newest
+  let picked = null; // the idea someone tapped
+  let held = null; // a trunk or branch someone tapped, kept lit
   let landing = null;
-  let box = ""; // the map's size at the last draw, so only a real size change redraws
+  let box = ""; // the sizes at the last draw, so only a real size change redraws
   let seenRaw = "";
-  let opening = true; // the first paint grows the trails from the ground up, once
-  let spots = new Map(); // id -> { x, y, color, idea, trunk, branch }
-  let laneStops = []; // where each lane's trail sits, for settling a sideways pan on a phone
+  let opening = !still; // the first paint grows the lines out of the card, once
+  let spots = new Map(); // id -> { idea, t, b }
+  let partners = new Map(); // id -> ids of ideas whose builders said yes to each other
+  let layers = {};
 
-  // Titles are measured, not guessed, so a label is only cut when it truly does not fit.
-  const ruler = document.createElement("canvas").getContext("2d");
-  const span = (text, px, weight) => {
-    ruler.font = `${weight} ${px}px Overpass, "Helvetica Neue", Arial, sans-serif`;
-    return ruler.measureText(text).width;
-  };
-  function wrap(title, first, rest, px) {
-    const fits = (s, n) => span(s, px, 700) <= (n ? rest : first);
-    const lines = [""];
-    for (const w of title.split(" ")) {
-      const n = lines.length - 1;
-      const next = (lines[n] + " " + w).trim();
-      if (fits(next, n) || !lines[n]) lines[n] = next;
-      else if (lines.length < 3) lines.push(w);
-      else lines[n] += " " + w;
-    }
-    const n = lines.length - 1;
-    while (lines[n].length > 2 && !fits(lines[n], n)) lines[n] = lines[n].replace(/.…?$/, "").trimEnd() + "…";
-    return lines;
+  // Biggest trunk first, biggest branch first, best idea first.
+  function tree() {
+    const trunks = data.trunks.map((t, ti) => {
+      const branches = t.branches
+        .map((b, bi) => ({ name: b.name, key: `${ti}/${bi}`, ideas: [...b.ideas].sort((a, c) => c.score - a.score || a.at.localeCompare(c.at)) }))
+        .sort((a, c) => c.ideas.length - a.ideas.length || c.ideas[0].score - a.ideas[0].score);
+      return { name: t.name, ti: String(ti), branches, n: branches.reduce((s, b) => s + b.ideas.length, 0) };
+    });
+    return trunks.sort((a, c) => c.n - a.n);
   }
 
-  // One side of a mountain: a near-straight flank that eases into the valley.
-  const flank = (a, b) => {
-    const dx = b.x - a.x, dy = b.y - a.y;
-    return dy > 0
-      ? `C${a.x + dx * 0.34},${a.y + dy * 0.42} ${a.x + dx * 0.66},${a.y + dy * 0.9} ${b.x},${b.y}`
-      : `C${a.x + dx * 0.34},${a.y + dy * 0.1} ${a.x + dx * 0.66},${a.y + dy * 0.58} ${b.x},${b.y}`;
-  };
+  // ---- the pieces both layouts draw with
+  function wire(d, idea, t, b, order) {
+    const moving = opening || idea.id === landing;
+    const p = svg("path", { class: `w ${call(idea.score)[2]}${moving ? " grow" : ""}`, d, "data-i": idea.id, "data-b": b.key, "data-t": t.ti });
+    if (moving) {
+      p.setAttribute("pathLength", 1);
+      if (opening) p.style.animationDelay = `${order * 12}ms`;
+    }
+    layers[call(idea.score)[2]].append(p);
+  }
+  function leaf(idea, t, b, side, order) {
+    const e = node("button", `leaf ${side} ${call(idea.score)[2]} ${idea.sample ? "sample" : "real"}`);
+    e.type = "button";
+    if (idea.id === picked) e.classList.add("on");
+    if (idea.id === data.latest) e.classList.add("here");
+    if (idea.id === landing) e.classList.add("landing");
+    if (opening) {
+      e.classList.add("rise");
+      e.style.animationDelay = `${700 + order * 12}ms`;
+    }
+    e.dataset.i = idea.id;
+    e.dataset.b = b.key;
+    e.dataset.t = t.ti;
+    e.setAttribute("aria-label", `${idea.title}, ${idea.score} out of 100, ${call(idea.score)[1]}`);
+    e.append(node("span", "dot"), node("span", "num", idea.score), node("span", "ttl", idea.title));
+    spots.set(idea.id, { idea, t, b });
+    $("nodes").append(e);
+    return e;
+  }
+  function chip(kind, text, t, b, delay) {
+    const e = node("div", `chip ${kind}${opening ? " rise" : ""}`, text);
+    if (opening) e.style.animationDelay = `${delay}ms`;
+    e.dataset.chip = kind;
+    e.dataset.t = t.ti;
+    if (b) e.dataset.b = b.key;
+    $("nodes").append(e);
+    return e;
+  }
+
+  // ---- wide: the card in the middle, trunks leaving to both sides
+  const BG = 0.45, TG = 1; // the room between branches and between trunks, in rows
+  const span = (t) => t.n + (t.branches.length - 1) * BG;
+  const height = (side) => side.reduce((s, t) => s + span(t), 0) + Math.max(0, side.length - 1) * TG;
+  const bend = (x1, y1, x2, y2) => `C${r((x1 + x2) / 2)},${r(y1)} ${r((x1 + x2) / 2)},${r(y2)} ${r(x2)},${r(y2)}`;
+
+  function drawWide(trunks, canvas, stage) {
+    const W = stage.clientWidth, view = stage.clientHeight;
+    // Two sides, as even as they come.
+    const sides = [[], []];
+    for (const t of trunks) sides[height(sides[1]) < height(sides[0]) ? 1 : 0].push(t);
+    const rows = Math.max(height(sides[0]), height(sides[1]), 1);
+    const pad = 24;
+    const row = Math.max(19, Math.min(31, (view - pad * 2) / rows));
+    const H = Math.max(view, Math.ceil(rows * row + pad * 2));
+    canvas.style.height = `${H}px`;
+    canvas.style.setProperty("--row", `${r(row)}px`);
+    canvas.style.setProperty("--fs", `${r(Math.max(12.5, Math.min(16.5, row * 0.6)))}px`);
+    $("wires").setAttribute("width", W);
+    $("wires").setAttribute("height", H);
+
+    // Where the card sits on the canvas. The lines leave from its two sides.
+    const c = canvas.getBoundingClientRect(), h = $("hub").getBoundingClientRect();
+    const hub = { l: h.left - c.left, r: h.right - c.left, y: h.top - c.top + h.height / 2, h: h.height };
+    const most = Math.max(...sides.map((side) => side.reduce((s, t) => s + t.n, 0)), 1);
+    const gap = Math.max(1.4, Math.min(3, (hub.h - 48) / most)); // how far apart two lines run in a bundle
+    canvas.style.setProperty("--sw", `${r(Math.max(1.1, gap - 1))}px`);
+
+    sides.forEach((side, s) => {
+      const dir = s ? 1 : -1;
+      const edge = s ? hub.r : hub.l;
+      const room = (s ? W - hub.r : hub.l) - 18;
+      const leafW = Math.max(132, Math.min(208, room * 0.38));
+      const run = room - leafW - 12;
+      // Names shrink with the room they have, so a smaller laptop never cuts one short.
+      canvas.style.setProperty("--tf", `${r(Math.max(15, Math.min(21, run * 0.057)))}px`);
+      canvas.style.setProperty("--bf", `${r(Math.max(12, Math.min(15, run * 0.041)))}px`);
+      // Leaving the card: a fan, the trunk's name, a fan, the branch's name, a fan, the idea.
+      const x = [-10 / run, 0.26, 0.5, 0.65, 0.88, 1].map((f) => edge + dir * f * run);
+
+      let y = (H - height(side) * row) / 2;
+      side.forEach((t, i) => {
+        if (i) y += TG * row;
+        const first = y;
+        t.branches.forEach((b, j) => {
+          if (j) y += BG * row;
+          b.top = y;
+          y += b.ideas.length * row;
+          b.y = (b.top + y) / 2;
+        });
+        t.y = (first + y) / 2;
+      });
+
+      const n = side.reduce((sum, t) => sum + t.n, 0);
+      let i = 0;
+      for (const t of side) {
+        let j = 0;
+        for (const b of t.branches) {
+          b.ideas.forEach((idea, k) => {
+            const ya = hub.y + (i - (n - 1) / 2) * gap;
+            const yb = t.y + (j - (t.n - 1) / 2) * gap;
+            const yc = b.y + (k - (b.ideas.length - 1) / 2) * gap;
+            const yd = b.top + (k + 0.5) * row;
+            wire(`M${r(x[0])},${r(ya)} ${bend(x[0], ya, x[1], yb)} H${r(x[2])} ${bend(x[2], yb, x[3], yc)} H${r(x[4])} ${bend(x[4], yc, x[5], yd)}`, idea, t, b, i);
+            const e = leaf(idea, t, b, s ? "r" : "l", i);
+            e.style.top = `${r(yd)}px`;
+            e.style.maxWidth = `${r(leafW + 10)}px`;
+            if (s) e.style.left = `${r(x[5] - 5)}px`;
+            else e.style.right = `${r(W - x[5] - 5)}px`;
+            i++;
+            j++;
+          });
+          const e = chip("b", b.name, t, b, 520);
+          e.style.left = `${r((x[3] + x[4]) / 2)}px`;
+          e.style.top = `${r(b.y)}px`;
+          e.style.maxWidth = `${r(Math.abs(x[4] - x[3]) + 40)}px`;
+        }
+        const e = chip("t", t.name, t, null, 260);
+        e.style.left = `${r((x[1] + x[2]) / 2)}px`;
+        e.style.top = `${r(t.y)}px`;
+        e.style.maxWidth = `${r(Math.abs(x[2] - x[1]) + 56)}px`;
+      }
+    });
+  }
+
+  // ---- tall: one trunk after another. Its lines hang down from the name and turn off to each idea.
+  function drawTall(trunks, canvas, stage) {
+    const W = stage.clientWidth;
+    const row = 38, left = 18, gap = 3;
+    const widest = Math.min(16, Math.max(...trunks.map((t) => t.n), 1));
+    const dotX = left + widest * gap + 19;
+    canvas.style.setProperty("--row", `${row}px`);
+    canvas.style.setProperty("--fs", "16.5px");
+    canvas.style.setProperty("--sw", "2px");
+    let y = 6, order = 0;
+    for (const t of trunks) {
+      const name = chip("t", t.name, t, null, 200);
+      name.style.left = `${left - 1}px`;
+      name.style.top = `${y + 15}px`;
+      y += 36;
+      const top = y - 2;
+      const step = Math.min(gap, (dotX - 19 - left) / t.n);
+      let j = 0;
+      for (const b of t.branches) {
+        const tag = chip("b", b.name, t, b, 420);
+        tag.style.left = `${dotX - 5}px`;
+        tag.style.top = `${y + 13}px`;
+        y += 25;
+        for (const idea of b.ideas) {
+          const ly = y + row / 2;
+          // The first idea takes the line nearest the names, so no line ever crosses another.
+          const lx = left + (t.n - 1 - j) * step + step / 2;
+          const turn = Math.min(12, dotX - lx - 5);
+          wire(`M${r(lx)},${top} V${r(ly - turn)} Q${r(lx)},${ly} ${r(lx + turn)},${ly} H${dotX}`, idea, t, b, order);
+          const e = leaf(idea, t, b, "r", order);
+          e.style.top = `${ly}px`;
+          e.style.left = `${dotX - 5}px`;
+          e.style.maxWidth = `${W - dotX - 9}px`;
+          y += row;
+          j++;
+          order++;
+        }
+        y += 5;
+      }
+      y += 20;
+    }
+    canvas.style.height = `${y}px`;
+    $("wires").setAttribute("width", W);
+    $("wires").setAttribute("height", y);
+  }
+
+  const sizeKey = () => (tall() ? `tall/${$("stage").clientWidth}` : `${$("stage").clientWidth}x${$("stage").clientHeight}/${$("hub").offsetHeight}`);
 
   function render() {
-    const stage = $("stage");
-    const svg = $("map");
-    const lanes = [];
-    data.trunks.forEach((t, ti) =>
-      t.branches.forEach((b) => lanes.push({ ti, trunk: t.name, branch: b.name, ideas: b.ideas, color: TRAILS[ti % TRAILS.length] })),
-    );
-    $("empty").hidden = lanes.length > 0;
-
-    const small = phone();
-    const H = Math.max(stage.clientHeight, 540);
-    const view = stage.clientWidth;
-    box = `${view}x${stage.clientHeight}`;
-    // Sized to be read standing a meter from a laptop. A phone is held closer, so it can run smaller.
-    const type = small ? { num: 20, ttl: 14.5, line: 16, gap: 40 } : { num: 23, ttl: 16, line: 18, gap: 46 };
-    const padL = small ? 100 : 146, padR = small ? 12 : 16, top = 46, foot = 104, trunkGap = small ? 14 : 18;
-    const gaps = Math.max(0, data.trunks.length - 1) * trunkGap;
-    // On a phone two lanes fit and a sliver of the third shows, so it is plain the map pans sideways.
-    const LW = small ? Math.floor((view - padL) / 2.12) : Math.max(150, Math.min(214, (view - padL - padR - gaps) / Math.max(1, lanes.length)));
-    const W = Math.max(view, padL + lanes.length * LW + gaps + padR);
-    const y0 = H - foot;
-    const y = (s) => top + (1 - s / 100) * (y0 - top);
-    svg.setAttribute("width", W);
-    svg.setAttribute("height", H);
-    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-    svg.replaceChildren();
+    const stage = $("stage"), canvas = $("canvas");
+    const trunks = tree();
+    $("empty").hidden = trunks.length > 0;
+    $("nodes").replaceChildren();
+    layers = { drop: svg("g"), sharp: svg("g"), build: svg("g") };
+    $("wires").replaceChildren(layers.drop, layers.sharp, layers.build);
     spots = new Map();
-
-    // Lanes: one per branch, grouped by trunk.
-    laneStops = [];
-    let cursor = padL;
-    lanes.forEach((lane, n) => {
-      if (n && lane.ti !== lanes[n - 1].ti) cursor += trunkGap;
-      lane.x = cursor + 14;
-      cursor += LW;
-      // Highest score on top. Each label is wrapped first, so it claims exactly the height it needs.
-      const pts = [...lane.ideas]
-        .sort((a, b) => b.score - a.score || a.at.localeCompare(b.at))
-        .map((idea) => {
-          const numW = span(String(idea.score), type.num, 900);
-          const lines = wrap(idea.title, LW - 16 - numW - 7 - 8, LW - 16 - 8, type.ttl);
-          return { idea, y: y(idea.score), lines, numW, h: type.num + 7 + (lines.length - 1) * type.line };
-        });
-      // Where two would overlap, nudge them apart but keep the order.
-      for (let i = 1; i < pts.length; i++) pts[i].y = Math.max(pts[i].y, pts[i - 1].y + pts[i - 1].h);
-      for (let i = pts.length - 1; i >= 0; i--) {
-        const under = i === pts.length - 1 ? y0 - 16 - (pts[i].lines.length - 1) * type.line : pts[i + 1].y - pts[i].h;
-        pts[i].y = Math.min(pts[i].y, under);
-      }
-      // A nudge must not carry an idea across a decision line: a 70 is drawn above "build it", never under it.
-      pts.forEach((p, i) => {
-        const wall = p.idea.score >= 70 ? y(70) : p.idea.score >= 40 ? y(40) : Infinity;
-        const up = Math.min(p.y - (wall - 9), pts[0].y - (top + 10));
-        if (up > 0) for (let j = 0; j <= i; j++) pts[j].y -= up;
-      });
-      lane.pts = pts;
-      lane.peak = (pts[0]?.y ?? y0 - 24) - 24;
-      laneStops.push(lane.x);
-    });
-
-    // The land. One ridge: a summit over each branch's best idea, a valley between branches,
-    // and a deeper pass between trunks.
-    let ridge = `M0,${y0}`;
-    if (lanes.length) {
-      let at = { x: Math.max(0, lanes[0].x - LW * 0.7), y: y0 };
-      ridge += ` L${at.x},${at.y}`;
-      lanes.forEach((lane, i) => {
-        if (i) {
-          const prev = lanes[i - 1];
-          const high = Math.max(prev.peak, lane.peak);
-          const pass = { x: prev.x + (lane.x - prev.x) * 0.56, y: high + (y0 - high) * (prev.ti === lane.ti ? 0.24 : 0.5) };
-          ridge += ` ${flank(at, pass)}`;
-          at = pass;
-        }
-        // A small rounded cap, so a summit reads as rock and not as a spike.
-        const cap = Math.min(11, LW * 0.07);
-        ridge += ` ${flank(at, { x: lane.x - cap, y: lane.peak + 8 })} Q${lane.x},${lane.peak - 4} ${lane.x + cap},${lane.peak + 8}`;
-        at = { x: lane.x + cap, y: lane.peak + 8 };
-      });
-      const end = { x: Math.min(W, at.x + LW * 0.95), y: y0 };
-      ridge += ` ${flank(at, end)} L${W},${y0}`;
-    } else ridge += ` L${W},${y0}`;
-    const land = `${ridge} L${W},${y0 + 14} L0,${y0 + 14} Z`;
-
-    // In the open sky, the two lines that turn a score into a decision.
-    for (const [s] of CALLS.slice(0, 2)) svg.append(el("path", { class: "bar", d: `M0,${y(s)} H${W}` }));
-
-    const defs = el("defs");
-    const clip = el("clipPath", { id: "land" });
-    clip.append(el("path", { d: land }));
-    const gaps_ = el("mask", { id: "words", maskUnits: "userSpaceOnUse", x: 0, y: 0, width: W, height: H });
-    gaps_.append(el("rect", { x: 0, y: 0, width: W, height: H, fill: "#fff" }));
-    defs.append(clip, gaps_);
-    svg.append(defs);
-    svg.append(el("path", { class: "land", d: land }));
-    // Elevation tints, the way a relief map does it: lowland, the middle band, and summits past 70 in orange.
-    const relief = el("g", { "clip-path": "url(#land)" });
-    relief.append(el("rect", { class: "mid", x: 0, y: 0, width: W, height: y(40) }));
-    relief.append(el("rect", { class: "high", x: 0, y: 0, width: W, height: y(70) }));
-    for (let s = 0; s <= 100; s += 10) {
-      let d = "";
-      for (let x = 0; x <= W + 24; x += 24) {
-        const wave = Math.sin(x / 97 + s) * 3.2 + Math.sin(x / 41 + s * 1.7) * 1.6;
-        d += `${x ? "L" : "M"}${x},${(y(s) + wave).toFixed(1)}`;
-      }
-      relief.append(el("path", { class: `contour${s % 20 ? "" : " index"}`, d }));
-    }
-    for (const [s] of CALLS.slice(0, 2)) relief.append(el("path", { class: "band-edge", d: `M0,${y(s)} H${W}` }));
-    svg.append(relief);
-    svg.append(el("path", { class: "ridge", d: ridge, mask: "url(#words)" }));
-
-    // The scale that names the lines. It stays put while the map pans under it.
-    const gutter = $("gutter");
-    gutter.replaceChildren();
-    const mark = (s, text, call) => {
-      const m = document.createElement("span");
-      m.textContent = text;
-      m.style.top = `${y(s)}px`;
-      if (call) m.className = "call";
-      gutter.append(m);
-    };
-    for (const s of small ? [100, 0] : [100, 80, 60, 20, 0]) mark(s, s);
-    for (const [s, name] of CALLS.slice(0, 2)) mark(s, `${s} ${name}`, true);
-
-    // Trails. Each trunk starts at its own blaze and forks into its branches.
-    const trails = el("g");
-    const names = el("g");
-    data.trunks.forEach((t, ti) => {
-      const mine = lanes.filter((l) => l.ti === ti);
-      const color = mine[0].color;
-      const tx = mine.reduce((sum, l) => sum + l.x, 0) / mine.length;
-      const ty = y0 + 72;
-      for (const lane of mine) {
-        let d = `M${tx},${ty} C${tx},${ty - 24} ${lane.x},${y0 + 56} ${lane.x},${y0 + 30}`;
-        let px = lane.x, py = y0 + 30;
-        [...lane.pts].reverse().forEach((p, i) => {
-          const mid = (py + p.y) / 2;
-          const bend = (i % 2 ? -1 : 1) * Math.min(8, Math.abs(py - p.y) / 5);
-          d += ` C${px + bend},${mid} ${lane.x - bend},${mid} ${lane.x},${p.y}`;
-          px = lane.x;
-          py = p.y;
-        });
-        const grow = opening ? { pathLength: 1, style: `animation-delay:${ti * 110}ms` } : {};
-        trails.append(el("path", { class: `casing${opening ? " grow" : ""}`, d, ...grow }), el("path", { class: `trail${opening ? " grow" : ""}`, d, stroke: color, ...grow }));
-        names.append(el("text", { class: "branch-name", x: lane.x + 10, y: y0 + 34, style: `fill:${color}` }, lane.branch));
-        for (const p of lane.pts) spots.set(p.idea.id, { x: lane.x, y: p.y, color, idea: p.idea, trunk: lane.trunk, branch: lane.branch, lines: p.lines, numW: p.numW, h: p.h });
-      }
-      names.append(el("rect", { x: tx - 6, y: ty - 4, width: 12, height: 20, rx: 2.5, fill: color, stroke: "var(--paper)", "stroke-width": 2 }));
-      names.append(el("text", { class: "trunk-name", x: tx + 14, y: ty + 13 }, t.name));
-    });
-    svg.append(trails);
-
-    // A dotted line between two ideas whose builders said yes to each other.
+    partners = new Map();
     for (const [a, b] of data.links) {
-      const p = spots.get(a), q = spots.get(b);
-      if (!p || !q) continue;
-      const same = Math.abs(p.x - q.x) < 10;
-      const cx = same ? p.x - 46 : (p.x + q.x) / 2;
-      const cy = same ? (p.y + q.y) / 2 : Math.min(p.y, q.y) - 46;
-      const d = `M${p.x},${p.y} Q${cx},${cy} ${q.x},${q.y}`;
-      svg.append(el("path", { class: "link-casing", d }), el("path", { class: "link", d }));
+      partners.set(a, [...(partners.get(a) ?? []), b]);
+      partners.set(b, [...(partners.get(b) ?? []), a]);
     }
-    svg.append(names);
-
-    // Waypoints. Solid was texted in, hollow is a sample.
-    for (const [id, s] of spots) {
-      const { idea, x, y: py, color } = s;
-      const g = el("g", {
-        class: `wp${idea.sample ? " sample" : ""}${id === shown() ? " on" : ""}${id === landing ? " landing" : ""}${opening ? " rise" : ""}`,
-        // Waypoints appear as the trail reaches them: lowest first.
-        ...(opening ? { style: `animation-delay:${Math.round(250 + ((y0 - py) / (y0 - top)) * 900)}ms` } : {}),
-        tabindex: 0,
-        role: "button",
-        "aria-label": `${idea.title}, ${idea.score} out of 100`,
-        "data-id": id,
-      });
-      g.append(el("rect", { class: "hit", x: x - 14, y: py - 20, width: LW - 4, height: s.h + 8 }));
-      g.append(el("circle", { class: "halo", cx: x, cy: py, r: 14 }));
-      g.append(el("circle", { class: "dot", cx: x, cy: py, r: 7.5, ...(idea.sample ? { fill: "var(--sheet)", style: `stroke:${color}` } : { fill: color }) }));
-      const base = py + type.num * 0.34;
-      const text = el("text", { x: x + 16, y: base });
-      text.append(el("tspan", { class: "num", "font-size": type.num }, idea.score), el("tspan", { class: "ttl", dx: 7, "font-size": type.ttl }, s.lines[0]));
-      s.lines.slice(1).forEach((l) => text.append(el("tspan", { class: "ttl", x: x + 16, dy: type.line, "font-size": type.ttl }, l)));
-      // The ridge line breaks behind words, the way a contour breaks for its own elevation label.
-      s.lines.forEach((l, k) => {
-        const w = k ? span(l, type.ttl, 700) : s.numW + 7 + span(l, type.ttl, 700);
-        const tall = k ? type.ttl : type.num;
-        gaps_.append(el("rect", { x: x + 11, y: base + k * type.line - tall * 0.86, width: w + 10, height: tall * 1.16, fill: "#000" }));
-      });
-      g.append(text);
-      svg.append(g);
-    }
-
-    // You are here: the newest idea that was texted in. Before anyone has, the idea from the example texts.
-    const here = spots.get(marked());
-    if (here) {
-      svg.append(el("circle", { class: "here", cx: here.x, cy: here.y, r: 13 }));
-      svg.append(el("circle", { class: "here-casing", cx: here.x, cy: here.y, r: 14 }));
-      svg.append(el("circle", { class: "here-core", cx: here.x, cy: here.y, r: 14 }));
-    }
+    box = sizeKey();
+    canvas.classList.toggle("tall", tall());
+    (tall() ? drawTall : drawWide)(trunks, canvas, stage);
     sign();
+    rest();
     landing = null;
     opening = false;
   }
 
-  /** The example texts in the side panel are about this sample, so the two point at each other. */
-  const example = () => [...spots.values()].find((s) => s.idea.sample && /^Invoice chaser/.test(s.idea.title))?.idea.id;
-  const marked = () => data?.latest ?? example();
-  const shown = () => (picked && spots.has(picked) ? picked : data?.latest);
+  // ---- lighting: one idea, one branch or one trunk stands out and the rest of the map steps back
+  function light(key) {
+    const stage = $("stage");
+    stage.classList.toggle("focus", Boolean(key));
+    if (!key) return void stage.querySelectorAll(".lit").forEach((e) => e.classList.remove("lit"));
+    const kind = key[0], val = key.slice(2);
+    // An idea lights its own line and the names it passes through. If its builder met another, theirs too.
+    const mine = kind === "i" ? [val, ...(partners.get(val) ?? [])].map((id) => spots.get(id)).filter(Boolean) : [];
+    for (const e of stage.querySelectorAll("[data-t]")) {
+      const d = e.dataset;
+      const on =
+        kind === "t" ? d.t === val
+        : kind === "b" ? d.b === val || (d.chip === "t" && d.t === val.split("/")[0])
+        : mine.some((s) => (d.chip === "t" ? d.t === s.t.ti : d.chip === "b" ? d.b === s.b.key : d.i === s.idea.id));
+      e.classList.toggle("lit", on);
+    }
+  }
+  const rest = () => light(picked && spots.has(picked) ? `i:${picked}` : held);
+  const keyOf = (target) => {
+    const n = target.closest?.("[data-t]");
+    if (!n) return null;
+    return n.dataset.i ? `i:${n.dataset.i}` : n.dataset.chip === "b" ? `b:${n.dataset.b}` : `t:${n.dataset.t}`;
+  };
 
   const ago = (iso) => {
     const min = Math.round((Date.now() - Date.parse(iso)) / 60000);
@@ -275,25 +275,36 @@
     return h < 24 ? `Texted in ${h} hr ago` : "Texted in earlier";
   };
 
-  // The sign: one idea, read like a trail marker.
+  // One idea up close: the number, then the two ratings it came from.
   function sign() {
-    const s = spots.get(shown());
-    const box = $("sign");
+    const s = spots.get(picked);
     $("thread").hidden = Boolean(s);
-    // On a phone the sign covers part of the map, so it only opens when asked.
-    if (!s || (phone() && !picked)) return (box.hidden = true);
+    $("sign").hidden = !s;
+    if (!s) return;
     const { idea } = s;
-    box.hidden = false;
+    const [, name, band] = call(idea.score);
+    $("sign").dataset.band = band;
     const fresh = idea.id === data.latest && Date.now() - Date.parse(idea.at) < 5 * 60_000;
     $("sign-when").textContent = idea.sample ? "Sample idea" : fresh ? "Just landed" : ago(idea.at);
     $("sign-score").textContent = idea.score;
     $("sign-title").textContent = idea.title;
     $("sign-problem").textContent = idea.problem;
     $("sign-fix").textContent = idea.fix;
-    $("sign-call").textContent = CALLS.find(([min]) => idea.score >= min)[1];
-    $("sign-where").textContent = `${s.trunk}, ${s.branch}`;
-    $("sign-blaze").style.background = s.color;
-    $("sign-near").textContent = idea.near ? `${idea.near} ${idea.near === 1 ? "builder is" : "builders are"} close to it` : "";
+    $("sign-call").textContent = name;
+    $("sign-where").textContent = `${s.t.name} / ${s.b.name}`;
+    const met = (partners.get(idea.id) ?? []).map((id) => spots.get(id)).find(Boolean);
+    $("sign-near").textContent = met
+      ? `Connected with the builder on "${met.idea.title}"`
+      : idea.near
+        ? `${idea.near} ${idea.near === 1 ? "builder is" : "builders are"} close to it`
+        : "";
+  }
+
+  function pick(id) {
+    picked = id;
+    for (const e of $("nodes").querySelectorAll(".leaf")) e.classList.toggle("on", e.dataset.i === id);
+    sign();
+    rest();
   }
 
   function apply(next) {
@@ -309,59 +320,54 @@
     $("name").textContent = next.name;
     $("tally").textContent = next.ideas ? `${next.ideas} texted in${next.connected ? `, ${next.connected} connected` : ""}` : "";
     $("key-sample").hidden = !next.trunks.some((t) => t.branches.some((b) => b.ideas.some((i) => i.sample)));
+    if (picked && !ids.has(picked)) picked = null;
     if (fresh) {
-      picked = phone() ? fresh : null;
+      // The idea that just landed takes the map: its line draws in and the rest steps back.
+      picked = fresh;
+      held = null;
       landing = fresh;
-      closeJoin(); // whoever scanned the code has texted: give the panel back to their idea
+      closeJoin(); // whoever scanned the code has texted: give the card back
     }
-    const firstPaint = !$("map").childElementCount;
     render();
-    // Keep the newest idea in view: on first paint, and whenever one lands.
-    const s = spots.get(fresh || (firstPaint && marked()));
-    const stage = $("stage");
-    // On a phone, the idea's own lane becomes the first one after the scale. On a wide screen, center it.
-    if (s) stage.scrollTo({ left: Math.max(0, phone() ? s.x - 114 : s.x - stage.clientWidth / 2), behavior: fresh ? "smooth" : "auto" });
+    if (fresh && tall()) $("nodes").querySelector(`.leaf[data-i="${fresh}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
   }
 
-  // ---- picking a waypoint
-  const pick = (id) => {
-    picked = id;
-    render();
-  };
-  $("map").addEventListener("click", (e) => {
-    const wp = e.target.closest(".wp");
-    pick(wp ? wp.dataset.id : null);
+  // ---- pointing and tapping
+  $("nodes").addEventListener("pointerover", (e) => {
+    const key = e.pointerType === "touch" ? null : keyOf(e.target);
+    if (key) light(key);
   });
-  $("map").addEventListener("keydown", (e) => {
-    const wp = e.target.closest(".wp");
-    if (wp && (e.key === "Enter" || e.key === " ")) {
-      e.preventDefault();
-      pick(wp.dataset.id);
-      $("map").querySelector(`[data-id="${wp.dataset.id}"]`)?.focus();
+  $("nodes").addEventListener("pointerout", (e) => {
+    if (e.pointerType !== "touch") rest();
+  });
+  $("stage").addEventListener("click", (e) => {
+    const n = e.target.closest("[data-t]");
+    if (n?.dataset.i) {
+      held = null;
+      return pick(n.dataset.i === picked ? null : n.dataset.i);
     }
+    // A trunk or branch name holds its lines lit. A tap on open paper lets everything go.
+    const key = n ? keyOf(n) : null;
+    held = key && key !== held ? key : null;
+    pick(null);
   });
   $("sign-close").addEventListener("click", () => pick(null));
 
-  // Redraw whenever the map's own box changes size (window resize, a toolbar appearing, the phone rotating).
+  // Redraw when the map's box or the card changes size (window resize, the scan code opening, a phone rotating).
   let resizing;
-  new ResizeObserver(() => {
-    const stage = $("stage");
-    if (!data || `${stage.clientWidth}x${stage.clientHeight}` === box) return;
+  const sizes = new ResizeObserver(() => {
+    if (!data || sizeKey() === box) return;
     clearTimeout(resizing);
-    resizing = setTimeout(() => data && render(), 120);
-  }).observe($("stage"));
-
-  // On a phone, let a sideways pan settle with a lane just clear of the pinned scale, so no label hides a dot.
-  let settling;
+    resizing = setTimeout(() => data && render(), 100);
+  });
+  sizes.observe($("stage"));
+  sizes.observe($("hub"));
+  // If the map is taller than the window it scrolls under the card, and the lines stay attached to it.
+  let frame;
   $("stage").addEventListener("scroll", () => {
-    if (!phone()) return;
-    clearTimeout(settling);
-    settling = setTimeout(() => {
-      const stage = $("stage");
-      if (stage.scrollLeft < 8 || stage.scrollLeft > stage.scrollWidth - stage.clientWidth - 8) return;
-      const want = laneStops.map((x) => x - 114).reduce((best, x) => (Math.abs(x - stage.scrollLeft) < Math.abs(best - stage.scrollLeft) ? x : best), 0);
-      if (Math.abs(want - stage.scrollLeft) > 2) stage.scrollTo({ left: Math.max(0, want), behavior: "smooth" });
-    }, 140);
+    if (tall() || !data) return;
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(render);
   }, { passive: true });
 
   // ---- live: the server pushes the map the moment a text is scored
@@ -373,9 +379,9 @@
       setTimeout(live, 3000);
     };
   }
-  // Labels are measured in the real typeface, so wait for it (briefly) before the first draw.
-  const fonts = Promise.race([document.fonts?.load('700 16px "Overpass"').then(() => document.fonts.load('900 23px "Overpass"')), new Promise((r) => setTimeout(r, 1500))]).catch(() => {});
-  Promise.all([fetch("/api/map", { cache: "no-store" }).then((r) => r.json()), fonts])
+  // The card's height depends on the typeface, so wait for it (briefly) before the first draw.
+  const fonts = Promise.race([document.fonts?.load('800 40px "Archivo"'), new Promise((done) => setTimeout(done, 1500))]).catch(() => {});
+  Promise.all([fetch("/api/map", { cache: "no-store" }).then((res) => res.json()), fonts])
     .then(([map]) => apply(map))
     .catch(() => {})
     .finally(live);
@@ -384,7 +390,7 @@
   function closeJoin() {
     clearTimeout(joinTimer);
     $("join-done").hidden = true;
-    document.querySelector(".panel").classList.remove("joining");
+    $("core").classList.remove("joining");
   }
 
   // ---- text it: register the number, then hand them Messages with the first text started
@@ -408,7 +414,7 @@
       $("join-how").querySelector("b").textContent = pretty(out.number);
       // On a shared laptop the next person should not see this number, and the code needs the room.
       $("phone").value = "";
-      document.querySelector(".panel").classList.add("joining");
+      $("core").classList.add("joining");
       clearTimeout(joinTimer);
       joinTimer = setTimeout(closeJoin, 4 * 60_000);
       if (touch) location.href = out.link;
