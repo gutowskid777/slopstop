@@ -203,18 +203,8 @@
       } else {
         g.append(svg("path", { class: `${cls} v${hash(idea.id) % 3}`, d: LEAF, transform: `translate(${r1(x)} ${r1(y)}) rotate(${r1((a * 180) / Math.PI)}) scale(${r1(len)})` }));
       }
-      // An idea that was really texted in carries a white blossom, so it is plainly not a sample.
-      if (!idea.sample) {
-        const R = Math.max(11.5 * s, len * 0.36), bloom = svg("g", { class: `bloom${idea.id === landing ? " landing" : ""}` });
-        for (let p = 0; p < 5; p++) {
-          const turn = -Math.PI / 2 + (p * Math.PI * 2) / 5;
-          bloom.append(svg("circle", { class: "petal", cx: r1(x + Math.cos(turn) * R * 0.54), cy: r1(y + Math.sin(turn) * R * 0.54), r: r1(R * 0.46) }));
-        }
-        bloom.append(svg("circle", { class: "heart", cx: r1(x), cy: r1(y), r: r1(R * 0.3) }));
-        g.append(bloom);
-        // The newest one keeps a slow ring, so it can be found at any zoom.
-        if (idea.id === data.latest) g.append(svg("circle", { class: "ping", cx: r1(x), cy: r1(y), r: r1(R * 1.15) }));
-      }
+      // The newest idea keeps a slow ring for a few minutes, so the one that just landed can be found.
+      if (idea.id === data.latest && Date.now() - Date.parse(idea.at) < 10 * 60_000) g.append(svg("circle", { class: "ping", cx: r1(mid.x), cy: r1(mid.y), r: r1(Math.max(9, len * 0.6)) }));
       return mid;
     };
     // A twig with its leaves: one at the end, the rest stepping up it on alternate sides. The best idea gets the end.
@@ -312,7 +302,7 @@
       tag.style.maxWidth = `${r1(Math.max(64, Math.min(oneSided ? 999 : labelW, room)))}px`;
       if (m.level === 2) {
         const { idea } = k;
-        tag.classList.add(call(idea.score)[2], idea.sample ? "sample" : "real");
+        tag.classList.add(call(idea.score)[2]);
         if (idea.id === picked) tag.classList.add("on");
         if (idea.id === landing) tag.classList.add("landing");
         tag.dataset.i = idea.id;
@@ -321,7 +311,6 @@
       } else {
         tag.setAttribute("aria-label", `${k.name}, ${k.count} ${k.count === 1 ? "idea" : "ideas"}. Zoom in.`);
         tag.append(node("b", "", k.name), node("span", "", `${k.count} ${k.count === 1 ? "idea" : "ideas"}`));
-        if (k.real) tag.append(node("em", "", `${k.real} texted in`));
       }
       tags.append(tag);
     });
@@ -436,7 +425,7 @@
     const [, name, band] = call(idea.score);
     $("sign").dataset.band = band;
     const fresh = idea.id === data.latest && Date.now() - Date.parse(idea.at) < 5 * 60_000;
-    $("sign-when").textContent = idea.sample ? "Sample idea" : fresh ? "Just landed" : ago(idea.at);
+    $("sign-when").textContent = fresh ? "Just landed" : idea.sample ? "" : ago(idea.at);
     $("sign-score").textContent = idea.score;
     $("sign-title").textContent = idea.title;
     $("sign-problem").textContent = idea.problem;
@@ -491,7 +480,7 @@
     known = ids;
     document.title = next.name;
     $("name").textContent = next.name;
-    $("tally").textContent = next.ideas ? `${next.ideas} texted in${next.connected ? `, ${next.connected} connected` : ""}` : "";
+    $("tally").textContent = `${ids.size} ideas${next.connected ? `, ${next.connected} connected` : ""}`;
     if (picked && !ids.has(picked)) picked = null;
     if (fresh) {
       // A text just landed: go to its branch, grow its leaf and show its score.

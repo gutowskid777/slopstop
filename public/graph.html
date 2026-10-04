@@ -97,10 +97,10 @@
       <div class="pin b"><span class="pin-letter">B</span><span class="pin-score" id="b-score">65</span><div><p class="pin-what" id="b-what"></p><p class="pin-math" id="b-math"></p></div></div>
     </div>
     <p class="gap" id="gap"></p>
-    <p class="hint">Drag A and B. The circles are the ideas on the map: bigger means more of them, solid means texted in.</p>
+    <p class="hint">Drag A and B. The circles are the ideas on the tree: bigger means more of them.</p>
     <footer class="foot">
       <p>Fix is what it costs to adopt: finding it, learning it, the habit, paying, upkeep.</p>
-      <a href="/">The map</a>
+      <a href="/">The tree</a>
     </footer>
   </section>
   <section class="plot" id="plot" aria-label="Problem against fix">
@@ -203,8 +203,7 @@
     for (const i of ideas) {
       const key = `${i.problem},${i.fix}`;
       const pile = piles.get(key) ?? { p: i.problem, f: i.fix, samples: 0, real: [] };
-      if (i.sample) pile.samples++;
-      else pile.real.push(i);
+      pile.samples++;
       piles.set(key, pile);
     }
     for (const pile of piles.values()) {

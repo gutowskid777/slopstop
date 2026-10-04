@@ -40,7 +40,7 @@ A photo of a whiteboard works as an idea. A thumbs-up on the intro question coun
 leaf. You zoom: the whole tree shows only the big branches, tap one and it becomes the trunk of its own tree, tap
 a smaller branch to read its ideas. **A glowing fruit is an idea worth building** (70 and up), a green leaf is one
 to sharpen, a gray leaf is one to drop. A new text grows its leaf the moment it is scored and the tree zooms to it.
-Titles and scores only, never who. A white blossom marks an idea that was texted in.
+Titles and scores only, never who. Seeded and texted-in ideas are drawn the same.
 `/night.html` (wires of light) and `/lines.html` (the first line map) are earlier looks, kept for comparison.
 
 `/graph` is the score itself: problem against fix, with two pins to drag.
