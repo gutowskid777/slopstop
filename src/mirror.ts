@@ -170,7 +170,11 @@ export class Mirror {
       for (const id of this.synced[kind].keys()) if (!now[kind].has(id)) writes.push({ delete: `${this.root}/${kind}/${docId(id)}` });
     }
     if (now.order !== this.synced.order) writes.push({ update: { name: `${this.root}/meta/order`, fields: { json: { stringValue: now.order }, at } } });
-    if (!writes.length) return;
+    // Nothing to write means Firestore already matches (a failed sync always leaves writes behind).
+    if (!writes.length) {
+      this.status = { ok: true, lastSync: this.status.lastSync || new Date().toISOString(), error: "" };
+      return;
+    }
     try {
       // Firestore takes 500 writes per commit.
       for (let i = 0; i < writes.length; i += 400) {
