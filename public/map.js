@@ -197,6 +197,7 @@
     view.tips = new Map(); // where each branch ends, so a zoom knows where to aim
     view.limbs = new Map(); // where each branch starts and ends, so a zoom can stand it upright
     view.ground = { x: W / 2, y: H - (W < 640 ? 26 : 40) };
+    view.top = H;
     const kids = m.kids, n = kids.length;
     if (!n) return view;
 
@@ -251,13 +252,14 @@
     );
     art.append(up, limbs);
 
+    let curK = ""; // the branch being drawn, so its leaf lights know whose they are
     const leaf = (g, x, y, a, size, idea) => {
       const band = call(idea.score)[2];
       const len = size;
       const cls = `lf ${band}${idea.id === landing ? " landing" : ""}`;
       const mid = { x: x + Math.cos(a) * len * 0.55, y: y + Math.sin(a) * len * 0.55 };
       // Zoomed in, each leaf sits in a little light of its own.
-      if (m.level) crowns.append(svg("circle", { class: "glow", cx: r1(mid.x), cy: r1(mid.y), r: r1(len * (m.level === 2 ? 0.56 : 0.5)) }));
+      if (m.level) crowns.append(svg("circle", { class: "glow", "data-k": curK, cx: r1(mid.x), cy: r1(mid.y), r: r1(len * (m.level === 2 ? 0.56 : 0.5)) }));
       if (band === "build") {
         g.append(svg("path", { class: "stem", d: `M${r1(x)},${r1(y)}L${r1(mid.x)},${r1(mid.y)}` }), svg("circle", { class: cls, cx: r1(mid.x), cy: r1(mid.y), r: r1(len * 0.36) }));
       } else {
@@ -283,6 +285,7 @@
     kids.forEach((k, i) => {
       const { side, T, ay } = k.geo;
       const root = at(ay), A = { x: root.x, y: ay };
+      curK = String(i);
       const dx = T.x - A.x, dy = T.y - A.y;
       // Up and out of the trunk at a steep angle, then arching over toward its end.
       const pts = cubic(
@@ -295,6 +298,9 @@
       const last = pts.length - 1;
       const w0 = k === leader ? root.w : m.level === 2 ? Math.max(3.5 * s, trunkW * 0.34) : Math.min(root.w * 0.72, Math.max(5 * s, trunkW * 0.42 * Math.sqrt(k.count / most) + 3 * s));
       const g = svg("g", { class: `kid${k.idea && k.idea.id === picked ? " on" : ""}`, "data-k": i });
+      g.style.transformOrigin = `${r1(A.x)}px ${r1(A.y)}px`; // a new view's branches sprout from here
+      // Where the branch comes out of the bark. A zoom cuts it here, so no stub runs on into the trunk.
+      const E = pts.find((p) => Math.abs(p.x - at(p.y).x) > at(p.y).w / 2 + 1) ?? pts[1];
       g.append(svg("path", { class: "bark", d: limb(pts, w0, Math.max(1.5 * s, w0 * 0.1), k === leader ? 0 : 0.55) }));
       const dir = heading(pts, last);
       const puffs = [];
@@ -346,10 +352,11 @@
         const middle = puffs.reduce((sum, [p]) => sum + p.y, 0) / puffs.length;
         for (const [p, size] of puffs) (p.y < middle ? lights : crowns).append(svg("circle", { class: `crown ${p.y < middle ? "hi" : "lo"}`, "data-k": i, cx: r1(p.x), cy: r1(p.y), r: r1(bush * size) }));
       }
+      view.top = Math.min(view.top, T.y);
       g.append(svg("circle", { class: "hit", cx: r1(T.x), cy: r1(T.y), r: r1(past + 10) }));
       limbs.append(g);
       view.tips.set(k.key, T);
-      view.limbs.set(k.key, { A, T, i: String(i) });
+      view.limbs.set(k.key, { A: E, T, P: pts[Math.round(last * 0.45)], i: String(i) });
 
       const tag = node("button", `tag ${side < 0 ? "l" : "r"}`);
       tag.type = "button";
@@ -427,65 +434,105 @@
       void fresh.offsetWidth;
       fresh.classList.remove("from-small");
     } else {
-      // Zooming in: the camera flies down the branch that was tapped and turns it upright, so it becomes
-      // the trunk of the next view. Zooming out plays the same move backwards.
-      const zin = how === "in";
-      const outer = zin ? old : fresh, inner = zin ? fresh : old;
-      const key = zin ? (from.length ? `b:${next[0]}/${next[1]}` : `t:${next[0]}`) : next.length ? `b:${from[0]}/${from[1]}` : `t:${from[0]}`;
-      const lb = outer.limbs?.get(key);
-      const G = inner.ground ?? { x: W / 2, y: H - 40 };
-      let fly = "scale(2.9)";
-      if (lb) {
-        const len = Math.hypot(lb.T.x - lb.A.x, lb.T.y - lb.A.y) || 1;
-        const sc = Math.max(1.8, Math.min(6, (H * 0.8) / len));
-        let rot = -90 - (Math.atan2(lb.T.y - lb.A.y, lb.T.x - lb.A.x) * 180) / Math.PI;
-        rot = ((rot + 540) % 360) - 180;
-        fly = `translate(${r1(G.x)}px, ${r1(G.y)}px) rotate(${r1(rot)}deg) scale(${r1(sc)}) translate(${r1(-lb.A.x)}px, ${r1(-lb.A.y)}px)`;
-      }
-      // Only the branch being flown down stays lit, the same as pointing at it.
-      const focus = (on) => {
-        if (!lb) return;
-        outer.classList.toggle("hot", on);
-        for (const e of outer.querySelectorAll("[data-k]")) e.classList.toggle("hot", on && e.dataset.k === lb.i);
-      };
-      focus(true);
-      const ease = "cubic-bezier(0.55, 0, 0.2, 1)";
-      outer.style.transformOrigin = "0 0";
-      inner.style.transformOrigin = `${r1(G.x)}px ${r1(G.y)}px`;
-      old.style.pointerEvents = "none";
-      fresh.style.transition = "none";
-      if (zin) {
-        fresh.style.opacity = "0";
-        fresh.style.transform = "scale(0.85)";
-      } else {
-        fresh.style.opacity = "0";
-        fresh.style.transform = fly;
-      }
-      views.append(fresh);
-      void fresh.offsetWidth;
-      if (zin) {
-        old.style.transition = `transform 0.8s ${ease}, opacity 0.3s ease 0.5s`;
-        old.style.transform = fly;
-        old.style.opacity = "0";
-        fresh.style.transition = `transform 0.45s ease-out 0.45s, opacity 0.35s ease 0.45s`;
-      } else {
-        old.style.transition = "transform 0.35s ease-in, opacity 0.25s ease";
-        old.style.transform = "scale(0.85)";
-        old.style.opacity = "0";
-        fresh.style.transition = `transform 0.8s ${ease} 0.1s, opacity 0.3s ease 0.1s`;
-        setTimeout(() => focus(false), 750);
-      }
-      fresh.style.transform = "";
-      fresh.style.opacity = "";
-      setTimeout(() => {
-        old.remove();
-        fresh.style.transition = fresh.style.transformOrigin = "";
-      }, 950);
+      zoom(old, fresh, how === "in", how === "in" ? (from.length ? `b:${next[0]}/${next[1]}` : `t:${next[0]}`) : next.length ? `b:${from[0]}/${from[1]}` : `t:${from[0]}`, W, H);
     }
     current = fresh;
     sign();
     landing = null;
   }
+  // Zooming in: everything but the tapped branch melts away, the bare branch swings upright and grows into
+  // the trunk of the next view, and that view's branches sprout from it. Zooming out plays it backwards.
+  function zoom(old, fresh, zin, key, W, H) {
+    const views = $("views");
+    const outer = zin ? old : fresh, inner = zin ? fresh : old;
+    const lb = outer.limbs?.get(key);
+    old.style.pointerEvents = "none";
+    if (!lb) {
+      // Nothing to fly down (a jump across the tree): a plain crossfade.
+      fresh.style.opacity = "0";
+      views.append(fresh);
+      void fresh.offsetWidth;
+      old.style.transition = fresh.style.transition = "opacity 0.35s ease";
+      old.style.opacity = "0";
+      fresh.style.opacity = "";
+      return setTimeout(() => old.remove(), 400);
+    }
+    const G = inner.ground;
+    const len = Math.hypot(lb.T.x - lb.A.x, lb.T.y - lb.A.y) || 1;
+    const sc = Math.max(1.4, Math.min(7, (G.y - (inner.top - 30)) / len));
+    // Stand up the lower part of the branch (it becomes the trunk) and let the tip keep its curve.
+    let rot = -90 - (Math.atan2(lb.P.y - lb.A.y, lb.P.x - lb.A.x) * 180) / Math.PI;
+    rot = ((rot + 540) % 360) - 180;
+    // Turn around the middle of the branch, and slide that middle straight to the middle of the new trunk.
+    // Both ends are written as the same list of steps, so the browser blends them step by step: no swoop.
+    const M = { x: (lb.A.x + lb.T.x) / 2, y: (lb.A.y + lb.T.y) / 2 };
+    const pose = (to, deg, k) => `translate(${r1(to.x)}px, ${r1(to.y)}px) rotate(${r1(deg)}deg) scale(${r1(k)}) translate(${r1(-M.x)}px, ${r1(-M.y)}px)`;
+    const rest = pose(M, 0, 1);
+    // Where the middle must end up so the cut end lands on the ground point.
+    const c = Math.cos((rot * Math.PI) / 180), sn = Math.sin((rot * Math.PI) / 180), ex = (lb.A.x - M.x) * sc, ey = (lb.A.y - M.y) * sc;
+    const fly = pose({ x: G.x - (ex * c - ey * sn), y: G.y - (ex * sn + ey * c) }, rot, sc);
+
+    // Cut the branch where it leaves the trunk: clip away everything behind that line.
+    const art = outer.querySelector("svg");
+    const dx = (lb.T.x - lb.A.x) / len, dy = (lb.T.y - lb.A.y) / len, nx = -dy, ny = dx, F = 6000;
+    const pt = (a, b) => `${r1(lb.A.x + nx * a + dx * b)},${r1(lb.A.y + ny * a + dy * b)}`;
+    const clip = svg("clipPath", { id: `cut${Date.now()}` });
+    clip.append(svg("polygon", { points: [pt(F, 0), pt(F, F), pt(-F, F), pt(-F, 0)].join(" ") }));
+    art.append(clip);
+    const limb = outer.querySelector(`.kid[data-k="${lb.i}"]`);
+    limb?.setAttribute("clip-path", `url(#${clip.id})`);
+    outer.classList.add("hot");
+    for (const e of outer.querySelectorAll("[data-k]")) e.classList.toggle("hot", e.dataset.k === lb.i);
+
+    // The next view's branches come out of the trunk one after another, lowest first.
+    const kids = [...inner.querySelectorAll(".kid")];
+    kids.forEach((e, n) => (e.style.transitionDelay = `${(zin ? n : kids.length - 1 - n) * (zin ? 45 : 25)}ms`));
+    const ease = "cubic-bezier(0.6, 0, 0.25, 1)";
+    outer.style.transformOrigin = "0 0";
+    fresh.style.transition = "none";
+    if (zin) {
+      fresh.classList.add("sprout");
+      views.append(fresh);
+      old.classList.add("flying");
+      old.style.transition = "none";
+      old.style.transform = rest;
+      void fresh.offsetWidth;
+      old.style.transition = `transform 0.75s ${ease}, opacity 0.15s ease 0.45s`;
+      old.style.transform = fly;
+      old.style.opacity = "0";
+      fresh.style.transition = "";
+      setTimeout(() => fresh.classList.remove("sprout"), 400);
+    } else {
+      fresh.classList.add("flying");
+      fresh.style.transform = fly;
+      fresh.style.opacity = "0";
+      views.prepend(fresh);
+      void fresh.offsetWidth;
+      // The small branches pull back into the trunk, then that trunk becomes the branch flying home.
+      old.classList.add("wither");
+      old.style.transition = "opacity 0.15s ease 0.38s";
+      old.style.opacity = "0";
+      fresh.style.transition = `transform 0.7s ${ease} 0.35s, opacity 0.12s ease 0.36s`;
+      fresh.style.transform = rest;
+      fresh.style.opacity = "";
+      setTimeout(() => {
+        fresh.classList.add("settle");
+        fresh.classList.remove("flying", "hot");
+        for (const e of fresh.querySelectorAll(".hot")) e.classList.remove("hot");
+      }, 820);
+    }
+    setTimeout(() => {
+      old.remove();
+      fresh.style.transition = fresh.style.transformOrigin = fresh.style.transform = "";
+      for (const e of kids) e.style.transitionDelay = "";
+      if (!zin) {
+        fresh.classList.remove("settle");
+        limb?.removeAttribute("clip-path");
+        clip.remove();
+      }
+    }, 1350);
+  }
+
   function route() {
     if (!data) return;
     const next = fit(fromHash());

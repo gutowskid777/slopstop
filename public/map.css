@@ -149,6 +149,24 @@ a { color: inherit; }
 .view.hot .tag:not(.hot) { opacity: 0.22; }
 .view.hot .kid.hot { filter: brightness(1.18) drop-shadow(0 0 10px rgba(127, 227, 173, 0.45)); }
 .view.hot .crown.hot { filter: brightness(1.25); }
+.glow { transition: opacity 0.18s; }
+.view.hot .glow:not(.hot) { opacity: 0.1; }
+
+/* The zoom. flying: only the bare wood of the tapped branch is left. sprout: a view waiting to grow. */
+.kid { transform-box: view-box; }
+.kid > *, .tags { transition: opacity 0.25s ease; }
+.view.flying .kid:not(.hot), .view.flying .trunk, .view.flying .hill, .view.flying .crown, .view.flying .glow,
+.view.flying .tags, .view.flying .kid.hot > :not(:first-child) { opacity: 0 !important; }
+.view.flying .kid.hot { filter: none; }
+.view.sprout .trunk, .view.sprout .hill, .view.sprout .glow, .view.sprout .tags { opacity: 0; }
+.view.sprout .kid { opacity: 0; transform: scale(0.08); }
+.view.wither .kid { opacity: 0; transform: scale(0.08); }
+.view.wither .glow, .view.wither .tags { opacity: 0; transition-delay: 0s; }
+.view .kid { transition: opacity 0.3s ease, transform 0.55s cubic-bezier(0.2, 0.9, 0.3, 1); }
+.view .trunk { transition: opacity 0.2s ease; }
+.view .tags { transition: opacity 0.3s ease; }
+.view:not(.sprout):not(.hot):not(.wither) .glow { transition: opacity 0.3s ease 0.3s; } /* leaf lights come on once their branch is out */
+.view:not(.sprout):not(.wither):not(.flying) .tags { transition-delay: 0.25s; }
 
 .tag { position: absolute; transform: translateY(-50%); display: grid; gap: 1px; padding: 0; border: 0; background: none; text-align: left; line-height: 1.1; cursor: zoom-in; transition: opacity 0.18s; }
 .tag.l { text-align: right; justify-items: end; }
@@ -208,3 +226,6 @@ a { color: inherit; }
 
 .brand { display: inline-flex; align-items: center; gap: 10px; }
 .brand .logo { width: 34px; height: 34px; flex: none; filter: drop-shadow(0 0 10px rgba(255,194,74,.35)); }
+/* Zooming out: the rest of the tree comes back slowly as the branch lands. */
+.view.settle .crown, .view.settle .trunk, .view.settle .hill, .view.settle .glow, .view.settle .tags { transition: opacity 0.45s ease; }
+.view.settle .kid { transition: opacity 0.45s ease, transform 0.55s ease; }
