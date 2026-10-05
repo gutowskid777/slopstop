@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#060a18">
+<link rel="icon" href="/icon.png" type="image/png">
+<title>SlopStop Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&display=swap" rel="stylesheet">
+<style>
+/* The admin page: the same night sky as the tree, numbers first, one list at a time. */
+:root {
+  --sky: #060a18;
+  --panel: #0d1428;
+  --panel-2: #131c36;
+  --line: #222d4b;
+  --ink: #eef2fb;
+  --mute: #8f9bbb;
+  --gold: #ffc24a;
+  --leaf: #6fdca3;
+  --dry: #8a96a0;
+  --red: #ff6b5e;
+  --mine: #1d3b33;
+  --font: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; min-height: 100vh; background: var(--sky); color: var(--ink); font-family: var(--font);
+  background-image: radial-gradient(1200px 600px at 80% -10%, #12204a 0%, transparent 60%);
+  background-attachment: fixed;
+}
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 22px 16px 80px; }
+[hidden] { display: none !important; }
+
+/* Sign in */
+.gate { min-height: 88vh; display: grid; place-content: center; gap: 22px; text-align: center; padding: 0 16px; }
+.gate img { width: 64px; height: 64px; margin: 0 auto; filter: drop-shadow(0 0 18px rgba(255,194,74,.4)); }
+.gate h1 { margin: 0; font-size: 34px; font-weight: 750; letter-spacing: -0.02em; }
+.gate form { display: grid; gap: 12px; width: min(340px, 100%); margin: 0 auto; }
+.gate input { height: 58px; border-radius: 16px; border: 1px solid var(--line); background: var(--panel); padding: 0 18px; font-size: 20px; text-align: center; }
+.gate input:focus { outline: 2px solid var(--gold); outline-offset: 2px; }
+.gate button { height: 58px; border-radius: 16px; border: 0; background: var(--gold); color: #1a1405; font-size: 20px; font-weight: 700; }
+.err { min-height: 22px; color: var(--red); font-size: 16px; }
+
+/* Header */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 22px; }
+.brand { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 750; letter-spacing: -0.01em; }
+.brand img { width: 32px; height: 32px; }
+.brand span { color: var(--mute); font-weight: 500; }
+.ghost { border: 1px solid var(--line); background: transparent; border-radius: 12px; height: 40px; padding: 0 14px; font-size: 15px; color: var(--mute); }
+
+/* Numbers */
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 28px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 18px 18px 16px; min-width: 0; }
+.stat b { display: block; font-size: 46px; line-height: 1; font-weight: 750; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.stat b small { font-size: 24px; color: var(--mute); font-weight: 600; letter-spacing: 0; }
+.stat span { display: block; margin-top: 10px; font-size: 15px; color: var(--mute); }
+.stat.gold b { color: var(--gold); }
+.bar { height: 6px; border-radius: 6px; background: var(--line); margin-top: 12px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--gold); border-radius: 6px; }
+.bar.full i { background: var(--red); }
+
+/* Tabs */
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; margin-bottom: 18px; }
+.tabs button { height: 50px; border: 0; border-radius: 13px; background: transparent; font-size: 18px; font-weight: 650; color: var(--mute); }
+.tabs button[aria-selected="true"] { background: var(--panel-2); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+.tabs em { font-style: normal; color: var(--mute); font-weight: 500; margin-left: 6px; }
+
+/* Ideas */
+.list { display: grid; gap: 10px; }
+.idea { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 4px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 16px; }
+.idea.off { opacity: .62; }
+.score { grid-row: span 3; font-size: 40px; font-weight: 750; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; padding-top: 2px; }
+.score.hi { color: var(--gold); }
+.score.mid { color: var(--leaf); }
+.score.lo { color: var(--dry); }
+.idea h3 { margin: 0; font-size: 19px; line-height: 1.25; font-weight: 650; overflow-wrap: anywhere; }
+.meta { font-size: 15px; color: var(--mute); display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.meta .pf { color: var(--ink); }
+.tag { display: inline-block; font-size: 13px; font-weight: 650; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--mute); text-transform: uppercase; letter-spacing: .04em; }
+.tag.hidden { color: var(--red); border-color: rgba(255,107,94,.4); }
+.gist { margin: 4px 0 0; font-size: 16px; line-height: 1.45; color: #c9d1e6; overflow-wrap: anywhere; }
+.acts { grid-column: 2; display: flex; gap: 8px; margin-top: 8px; }
+.acts button { height: 42px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel-2); font-size: 15px; font-weight: 600; }
+.acts .del { color: var(--red); }
+.acts .del.armed { background: var(--red); color: #200; border-color: var(--red); }
+
+/* People */
+.person { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; width: 100%; text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 16px 18px; }
+.person b { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.person b span { color: var(--mute); font-weight: 500; margin-left: 8px; }
+.person time { font-size: 15px; color: var(--mute); align-self: center; }
+.person p { grid-column: 1 / -1; margin: 0; font-size: 16px; color: #c9d1e6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.thread-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.thread-head h2 { margin: 0; font-size: 24px; font-weight: 750; font-variant-numeric: tabular-nums; }
+.thread-head h2 span { color: var(--mute); font-weight: 500; font-size: 18px; margin-left: 6px; }
+.thread { display: flex; flex-direction: column; gap: 6px; }
+.day { align-self: center; font-size: 14px; color: var(--mute); margin: 14px 0 6px; }
+.b { max-width: 82%; padding: 10px 14px; border-radius: 20px; font-size: 17px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.b.in { align-self: flex-start; background: var(--panel-2); border-bottom-left-radius: 6px; }
+.b.out { align-self: flex-end; background: var(--mine); border-bottom-right-radius: 6px; }
+.b.thing { background: transparent; border: 1px dashed var(--line); color: var(--mute); }
+.b time { display: block; font-size: 12px; color: var(--mute); margin-top: 4px; }
+.empty { text-align: center; color: var(--mute); font-size: 17px; padding: 40px 0; }
+
+@media (max-width: 720px) {
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .stat { padding: 16px; border-radius: 18px; }
+  .stat b { font-size: 40px; }
+  .idea { grid-template-columns: 52px minmax(0, 1fr); padding: 14px; }
+  .score { font-size: 34px; }
+  .acts { grid-column: 1 / -1; }
+  .acts button { flex: 1; }
+}
+</style>
+</head>
+<body>
+
+<section class="gate" id="gate" hidden>
+  <img src="/logo.svg" alt="">
+  <h1>SlopStop admin</h1>
+  <form id="login" autocomplete="on">
+    <input id="code" type="password" name="password" autocomplete="current-password" placeholder="Passcode" aria-label="Passcode" required>
+    <button type="submit">Open</button>
+    <div class="err" id="err" role="alert"></div>
+  </form>
+</section>
+
+<main class="wrap" id="app" hidden>
+  <header class="top">
+    <div class="brand"><img src="/logo.svg" alt="">SlopStop <span>admin</span></div>
+    <button class="ghost" id="refresh" type="button">Refresh</button>
+  </header>
+
+  <section class="stats" id="stats" aria-label="Numbers"></section>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tab-ideas" aria-selected="true" type="button">Ideas<em id="n-ideas"></em></button>
+    <button role="tab" id="tab-people" aria-selected="false" type="button">People<em id="n-people"></em></button>
+  </nav>
+
+  <section id="ideas" class="list"></section>
+  <section id="people" hidden>
+    <div id="who" class="list"></div>
+    <div id="convo" hidden>
+      <div class="thread-head"><button class="ghost" id="back" type="button">Back</button><h2 id="convo-name"></h2></div>
+      <div class="thread" id="thread"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  // Every piece of user text goes in as text, never as markup.
+  const h = (tag, props = {}, ...kids) => {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+      if (k === "class") el.className = v;
+      else if (k === "text") el.textContent = v;
+      else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v);
+    }
+    for (const kid of kids) if (kid != null) el.append(kid);
+    return el;
+  };
+
+  const store = {
+    get() { try { return localStorage.getItem("ss-admin") || ""; } catch { return mem; } },
+    set(v) { mem = v; try { v ? localStorage.setItem("ss-admin", v) : localStorage.removeItem("ss-admin"); } catch {} },
+  };
+  let mem = "";
+  let data = null;
+  let tab = "ideas";
+  let open = null; // the person whose thread is open
+  let armed = null; // the idea one tap away from deletion
+
+  const ago = (iso) => {
+    const s = (Date.now() - new Date(iso)) / 1000;
+    if (s < 60) return "now";
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+    return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+  const clock = (iso) => new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  const dayOf = (iso) => new Date(iso).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  const num = (n) => (n == null ? "..." : String(n));
+
+  async function api(path, init = {}) {
+    const res = await fetch(path, { ...init, headers: { "content-type": "application/json", authorization: `Bearer ${store.get()}` } });
+    if (res.status === 401) { store.set(""); show(false); throw new Error("signed out"); }
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Something broke.");
+    return res.json();
+  }
+
+  function show(signedIn) {
+    $("gate").hidden = signedIn;
+    $("app").hidden = !signedIn;
+    if (!signedIn) setTimeout(() => $("code").focus(), 50);
+  }
+
+  $("login").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("err").textContent = "";
+    const res = await fetch("/api/admin/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ passcode: $("code").value }) });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) { $("err").textContent = body.error || "That didn't work."; return; }
+    store.set(body.token);
+    $("code").value = "";
+    show(true);
+    load();
+  });
+
+  function stat(value, label, opts = {}) {
+    return h("div", { class: `stat${opts.gold ? " gold" : ""}` }, value, h("span", { text: label }), opts.bar || null);
+  }
+  function frac(a, b) {
+    return h("b", {}, num(a), h("small", { text: ` / ${num(b)}` }));
+  }
+
+  function renderStats() {
+    const s = data.stats;
+    const pct = Math.min(100, Math.round((s.images.used / Math.max(1, s.images.cap)) * 100));
+    const bar = h("div", { class: `bar${pct >= 100 ? " full" : ""}` }, h("i", { style: `width:${pct}%` }));
+    $("stats").replaceChildren(
+      stat(h("b", { text: num(s.registered) }), "Registered"),
+      stat(h("b", { text: num(s.texted) }), "Texted"),
+      stat(h("b", { text: num(s.ideas) }), "Ideas"),
+      stat(h("b", { text: num(s.average) }), "Avg score"),
+      stat(h("b", { text: num(s.seventyPlus) }), "Ideas at 70+", { gold: true }),
+      stat(frac(s.introsAccepted, s.introsOffered), "Intros accepted"),
+      stat(h("b", { text: num(s.decksToday) }), "Decks sent today"),
+      stat(frac(s.images.used, s.images.cap), "Images today", { bar }),
+    );
+  }
+
+  async function act(id, action) {
+    try {
+      await api("/api/admin/idea", { method: "POST", body: JSON.stringify({ id, action }) });
+      armed = null;
+      await load();
+    } catch (e) { if (e.message !== "signed out") alertLine(e.message); }
+  }
+  function alertLine(msg) {
+    const el = h("div", { class: "err", text: msg, style: "text-align:center" });
+    $("ideas").prepend(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+
+  function renderIdeas() {
+    $("n-ideas").textContent = data.ideas.length;
+    if (!data.ideas.length) return $("ideas").replaceChildren(h("div", { class: "empty", text: "No ideas yet." }));
+    $("ideas").replaceChildren(...data.ideas.map((i) => {
+      const band = i.score >= 70 ? "hi" : i.score >= 40 ? "mid" : "lo";
+      const gist = h("p", { class: "gist", text: i.gist, hidden: "" });
+      const del = h("button", { class: `del${armed === i.id ? " armed" : ""}`, type: "button", text: armed === i.id ? "Tap to delete" : "Delete", onclick: () => {
+        if (armed === i.id) return act(i.id, "delete");
+        armed = i.id;
+        renderIdeas();
+        setTimeout(() => { if (armed === i.id) { armed = null; renderIdeas(); } }, 3500);
+      } });
+      return h("article", { class: `idea${i.status === "public" ? "" : " off"}` },
+        h("div", { class: `score ${band}`, text: String(i.score) }),
+        h("h3", { text: i.title, role: "button", tabindex: "0", onclick: () => (gist.hidden = !gist.hidden) }),
+        h("div", { class: "meta" },
+          h("span", { class: "pf", text: `Problem ${i.problem} · Fix ${i.fix}` }),
+          h("span", { text: ago(i.at) }),
+          h("span", { text: i.who }),
+          i.status === "public" ? null : h("span", { class: `tag ${i.status}`, text: i.status })),
+        gist,
+        h("div", { class: "acts" },
+          i.status === "hidden"
+            ? h("button", { type: "button", text: "Put back on tree", onclick: () => act(i.id, "show") })
+            : h("button", { type: "button", text: "Hide from tree", onclick: () => act(i.id, "hide") }),
+          del));
+    }));
+  }
+
+  function renderPeople() {
+    $("n-people").textContent = data.people.length;
+    const person = open && data.people.find((p) => p.key === open);
+    $("who").hidden = Boolean(person);
+    $("convo").hidden = !person;
+    if (person) return renderThread(person);
+    if (!data.people.length) return $("who").replaceChildren(h("div", { class: "empty", text: "No conversations yet." }));
+    $("who").replaceChildren(...data.people.map((p) => {
+      const last = p.messages[p.messages.length - 1];
+      return h("button", { class: "person", type: "button", onclick: () => { open = p.key; renderPeople(); window.scrollTo(0, 0); } },
+        h("b", { text: p.who }, p.name ? h("span", { text: p.name }) : null),
+        h("time", { text: ago(p.last) }),
+        h("p", { text: `${last.dir === "out" ? "SlopStop: " : ""}${last.text}` }));
+    }));
+  }
+
+  function renderThread(p) {
+    $("convo-name").replaceChildren(p.who, p.name ? h("span", { text: p.name }) : "");
+    let day = "";
+    const kids = [];
+    for (const m of p.messages) {
+      const d = dayOf(m.at);
+      if (d !== day) { day = d; kids.push(h("div", { class: "day", text: d })); }
+      const thing = /^\[(deck|photo|contact|tapback)/.test(m.text);
+      kids.push(h("div", { class: `b ${m.dir}${thing ? " thing" : ""}` }, m.text, h("time", { text: clock(m.at) })));
+    }
+    $("thread").replaceChildren(...kids);
+  }
+
+  function render() {
+    renderStats();
+    $("ideas").hidden = tab !== "ideas";
+    $("people").hidden = tab !== "people";
+    $("tab-ideas").setAttribute("aria-selected", String(tab === "ideas"));
+    $("tab-people").setAttribute("aria-selected", String(tab === "people"));
+    renderIdeas();
+    renderPeople();
+  }
+
+  async function load() {
+    try {
+      data = await api("/api/admin/data");
+      render();
+    } catch {}
+  }
+
+  $("tab-ideas").onclick = () => { tab = "ideas"; render(); };
+  $("tab-people").onclick = () => { tab = "people"; open = null; render(); };
+  $("back").onclick = () => { open = null; renderPeople(); };
+  $("refresh").onclick = load;
+  // Stay current while the page is open, without fighting a pending delete.
+  setInterval(() => { if (!document.hidden && !armed && store.get()) load(); }, 20000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && store.get()) load(); });
+
+  if (store.get()) { show(true); load(); } else show(false);
+})();
+</script>
+</body>
+</html>

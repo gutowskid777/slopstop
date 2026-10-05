@@ -125,6 +125,9 @@ function imagesLeft(): number {
     return IMAGE_CAP;
   }
 }
+/** For /admin: product pictures drawn today against the daily cap. */
+export const imageBudget = () => ({ used: IMAGE_CAP - Math.max(0, imagesLeft()), cap: IMAGE_CAP });
+
 function countImage() {
   const day = new Date().toISOString().slice(0, 10);
   let n = 0;

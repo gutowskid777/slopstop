@@ -15,7 +15,10 @@ export function merge(laptop: Db, server: Readonly<Db>, keep: Set<string>): Db {
   // A link to an idea that didn't make it across goes too.
   const ids = new Set(ideas.map((i) => i.id));
   for (const i of ideas) if (i.near) i.near = i.near.filter((n) => ids.has(n));
-  return { users, ideas, intros };
+  // Each side's conversations, by the same split, back in time order.
+  const messages = [...(laptop.messages ?? []).filter((m) => !ours(m.who)), ...(server.messages ?? []).filter((m) => ours(m.who))];
+  messages.sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
+  return { users, ideas, intros, messages };
 }
 
 if (process.argv[1]?.endsWith("merge.ts")) {

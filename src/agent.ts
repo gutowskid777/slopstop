@@ -4,7 +4,7 @@ import { Spectrum, Emoji, attachment, contact, type Message, type Space } from "
 import { imessage, effect } from "spectrum-ts/providers/imessage";
 import { handle, type Deps, type Out } from "./core.js";
 import type { BrainContext } from "./brain.js";
-import type { JsonStore } from "./store.js";
+import { msgId, type JsonStore } from "./store.js";
 
 /** People text in bursts ("hey" / "wait" / the actual idea). Wait this long for the burst to settle. */
 const SETTLE_MS = Number(process.env.SETTLE_MS ?? 1100);
@@ -15,6 +15,10 @@ const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const stamp = () => new Date().toLocaleTimeString("en-US", { hour12: false });
 const mask = (h: string) => (h.length > 6 ? `${h.slice(0, 3)}…${h.slice(-4)}` : h);
 const quiet = (what: string) => (err: unknown) => console.error(`${stamp()} ${what}: ${String((err as Error)?.message ?? err).slice(0, 200)}`);
+
+/** How one outgoing piece reads in the log and on /admin. */
+const plain = (o: Out) =>
+  o.type === "text" ? o.text : o.type === "file" ? (o.mimeType === "application/pdf" ? `[deck] ${o.name}` : "[photo]") : o.type === "contact" ? `[contact] ${o.name}` : `[tapback ${o.emoji}]`;
 
 type Lane = { texts: string[]; image?: BrainContext["image"]; space: Space; last: Message; timer?: NodeJS.Timeout; busy: boolean };
 
@@ -44,6 +48,24 @@ export async function startAgent(opts: {
     options: { flattenGroups: true, logLevel: "warn" },
   });
   const im = imessage(app);
+  /** Keep the thread, so /admin can read it. A failed write never stops a reply. */
+  const keep = (who: string, dir: "in" | "out", text: string) => {
+    try {
+      opts.store.addMessage({ id: msgId(), who, dir, text, at: new Date().toISOString() });
+    } catch (err) {
+      quiet("keep message")(err);
+    }
+  };
+  const said = (to: string, out: Out[]) => {
+    for (const o of out) {
+      console.log(`${stamp()} -> ${mask(to)}: ${plain(o).replace(/\n/g, " / ")}`);
+      keep(to, "out", plain(o));
+    }
+  };
+  const heard = (from: string, text: string) => {
+    console.log(`${stamp()} <- ${mask(from)}: ${text.replace(/\n/g, " / ")}`);
+    keep(from, "in", text);
+  };
   const lanes = new Map<string, Lane>();
   const seen = new Set<string>();
 
@@ -82,7 +104,7 @@ export async function startAgent(opts: {
   const direct = async (to: string, out: Out[]) => {
     if (!reachable(to)) return opts.offline?.(to, out);
     if (!ours(to)) return console.log(`${stamp()} -> ${mask(to)}: held, the other copy answers them`);
-    for (const o of out) console.log(`${stamp()} -> ${mask(to)}: ${o.type === "text" ? o.text.replace(/\n/g, " / ") : `[${o.type}]`}`);
+    said(to, out);
     const dm = await im.space.create(await im.user(to));
     await deliver(dm, out);
   };
@@ -93,7 +115,7 @@ export async function startAgent(opts: {
     changed: opts.changed,
     send: async (to, out) => {
       if (to !== sender) return direct(to, out);
-      for (const o of out) console.log(`${stamp()} -> ${mask(to)}: ${o.type === "text" ? o.text.replace(/\n/g, " / ") : `[${o.type}]`}`);
+      said(to, out);
       await deliver(space, out, last);
     },
   });
@@ -144,11 +166,11 @@ export async function startAgent(opts: {
         if (!sender || imessage(space).type === "group" || !ours(sender)) continue;
         const c = message.content;
         if (c.type === "text") {
-          console.log(`${stamp()} <- ${mask(sender)}: ${c.text.replace(/\n/g, " / ")}`);
+          heard(sender, c.text);
           queue(sender, space, message, c.text);
         } else if (c.type === "attachment" && c.mimeType.startsWith("image/")) {
           // A photo of a whiteboard or a sketch is an idea too.
-          console.log(`${stamp()} <- ${mask(sender)}: [photo ${c.mimeType}]`);
+          heard(sender, "[photo]");
           queue(sender, space, message, "", { mimeType: c.mimeType, data: await c.read() });
         } else if (c.type === "reaction") {
           // A thumbs-up or heart on the intro question is a yes. A thumbs-down is a no.
@@ -156,7 +178,7 @@ export async function startAgent(opts: {
           const no = c.emoji === Emoji.dislike;
           const top = opts.store.user(sender).pending.at(-1);
           if ((yes || no) && top?.kind === "intro") {
-            console.log(`${stamp()} <- ${mask(sender)}: [tapback ${c.emoji}]`);
+            heard(sender, `[tapback ${yes ? "yes" : "no"}]`);
             queue(sender, space, message, yes ? "yes" : "no");
           }
         }

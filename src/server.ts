@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { readFile } from "node:fs/promises";
 import { resolve, extname, normalize } from "node:path";
 import QRCode from "qrcode";
+import { adminApi, adminOn } from "./admin.js";
 import { mapPayload } from "./map.js";
 import { addUser, e164, online as photonOnline, textLink } from "./photon.js";
 import type { Out } from "./core.js";
@@ -77,6 +78,15 @@ export function startServer(opts: {
           watchers.delete(res);
         });
         return;
+      }
+
+      if (await adminApi(req, res, path, store, () => body(req), broadcast)) return;
+      // The admin shell only exists while a passcode is set. Its data still needs the passcode.
+      if (path === "/admin" || path === "/admin.html") {
+        if (!adminOn()) return json(res, 404, { error: "Not found" });
+        const page = await readFile(resolve(PUBLIC, "admin.html"));
+        res.writeHead(200, { "content-type": TYPES[".html"], "cache-control": "no-store", "x-robots-tag": "noindex", "x-frame-options": "SAMEORIGIN" });
+        return res.end(page);
       }
 
       if (path === "/api/health") return json(res, 200, { ok: true, ...opts.status?.() });

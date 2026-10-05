@@ -35,7 +35,7 @@ function fakeFirestore() {
     }
     if (docs.has(path)) return ok({ name: path, fields: docs.get(path) });
     const kids = [...docs].filter(([name]) => name.startsWith(`${path}/`) && !name.slice(path.length + 1).includes("/"));
-    if (/\/(users|ideas|intros)$/.test(path)) return ok({ documents: kids.map(([name, fields]) => ({ name, fields })) });
+    if (/\/(users|ideas|intros|messages)$/.test(path)) return ok({ documents: kids.map(([name, fields]) => ({ name, fields })) });
     return new Response(JSON.stringify({ error: { message: "not found" } }), { status: 404 });
   }) as typeof fetch;
   return { docs, commits: () => commits, restore: () => void (globalThis.fetch = real) };
@@ -88,15 +88,21 @@ test("cutover merge: the laptop wins for everyone except the test numbers, whose
     users: { [me]: user(me), "+1607555020": user("+1607555020"), "+1607555021": { ...user("+1607555021"), name: "New" } },
     ideas: [idea("old-mine", me, "1"), idea("theirs", "+1607555020", "2"), idea("late-theirs", "+1607555021", "3")],
     intros: [],
+    messages: [
+      { id: "m1", who: me, dir: "in", text: "laptop copy of a test number", at: "2026-10-04T01:00:00.000Z" },
+      { id: "m2", who: "+1607555020", dir: "in", text: "real person", at: "2026-10-04T02:00:00.000Z" },
+    ],
   };
   const server: Db = {
     users: { [me]: { ...user(me), name: "Dylan" }, "+1607555020": user("+1607555020") },
     ideas: [idea("old-mine", me, "1"), idea("theirs", "+1607555020", "2"), idea("test-mine", me, "4")],
     intros: [{ id: "i1", a: me, b: "+1607555020", ideaA: "test-mine", ideaB: "theirs", status: "declined", created: "5" }],
+    messages: [{ id: "m0", who: me, dir: "in", text: "server copy of a test number", at: "2026-10-04T00:30:00.000Z" }],
   };
   const out = merge(laptop, server, new Set([me]));
   assert.deepEqual(out.ideas.map((i) => i.id), ["theirs", "late-theirs", "old-mine", "test-mine"]);
   assert.equal(out.users[me].name, "Dylan");
+  assert.deepEqual(out.messages.map((m) => m.id), ["m0", "m2"]);
   assert.equal(out.users["+1607555021"].name, "New");
   assert.equal(out.intros.length, 1);
 });

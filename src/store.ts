@@ -21,6 +21,8 @@ export type Idea = {
   private: boolean;
   /** Seeded demo data. Shown on the map, never matched or messaged. */
   sample?: boolean;
+  /** Taken off the public tree from /admin (a joke, NSFW). The owner still has it; nobody else sees or matches it. */
+  hidden?: boolean;
   vec?: number[];
   /** Ids of other builders' ideas on the same problem. Worked out once, when the idea lands. */
   near?: string[];
@@ -59,6 +61,9 @@ export type Intro = {
   created: string;
 };
 
+/** One bubble on a real iMessage thread, either way. What /admin reads as the conversation. */
+export type Msg = { id: string; who: string; dir: "in" | "out"; text: string; at: string };
+
 export interface Store {
   user(id: string): User;
   saveUser(u: User): void;
@@ -66,7 +71,7 @@ export interface Store {
   idea(id: string): Idea | undefined;
   saveIdea(i: Idea): void;
   ideasBy(owner: string): Idea[];
-  /** Everything that can appear on the map: not private. */
+  /** Everything that can appear on the map: not private, not hidden. */
   mapIdeas(): Idea[];
   tree(): { trunk: string; branches: string[] }[];
   addIntro(x: Intro): void;
@@ -76,13 +81,15 @@ export interface Store {
   intros(): Intro[];
   /** Take one idea off the books, with its links and any intro that was about it. */
   removeIdea(id: string): void;
-  /** Wipe one person: their ideas, their record, and any intro they were part of. */
+  /** Wipe one person: their ideas, their record, their messages, and any intro they were part of. */
   forget(id: string): void;
+  addMessage(m: Msg): void;
+  messages(): Msg[];
 }
 
-export type Db = { users: Record<string, User>; ideas: Idea[]; intros: Intro[] };
+export type Db = { users: Record<string, User>; ideas: Idea[]; intros: Intro[]; messages: Msg[] };
 
-export const empty = (): Db => ({ users: {}, ideas: [], intros: [] });
+export const empty = (): Db => ({ users: {}, ideas: [], intros: [], messages: [] });
 
 export class JsonStore implements Store {
   private db: Db = empty();
@@ -146,7 +153,7 @@ export class JsonStore implements Store {
     return this.db.ideas.filter((i) => i.owner === owner);
   }
   mapIdeas() {
-    return this.db.ideas.filter((i) => !i.private);
+    return this.db.ideas.filter((i) => !i.private && !i.hidden);
   }
   tree() {
     const t = new Map<string, Set<string>>();
@@ -185,7 +192,15 @@ export class JsonStore implements Store {
   forget(id: string) {
     this.purge(new Set(this.db.ideas.filter((i) => i.owner === id).map((i) => i.id)), new Set(this.db.intros.filter((x) => x.a === id || x.b === id).map((x) => x.id)));
     delete this.db.users[id];
+    this.db.messages = this.db.messages.filter((m) => m.who !== id);
     this.flush();
+  }
+  addMessage(m: Msg) {
+    this.db.messages.push(m);
+    this.flush();
+  }
+  messages() {
+    return this.db.messages;
   }
   /** Seeder only: drop ideas matching the test. With everything = true, forget people and intros too. */
   drop(test: (i: Idea) => boolean, everything = false) {
@@ -196,3 +211,5 @@ export class JsonStore implements Store {
 }
 
 export const newId = () => Math.random().toString(36).slice(2, 10);
+/** Sorts by time, so a restored copy reads back in the order it was said. */
+export const msgId = (at = Date.now()) => `${at.toString(36).padStart(9, "0")}${newId().slice(0, 4)}`;

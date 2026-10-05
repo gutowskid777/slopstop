@@ -3,9 +3,9 @@
 // from Firestore. One writer only: whatever is on this server's disk wins.
 // On when FIRESTORE_PROJECT is set. Talks to Firestore's REST API with the machine's own Google identity, so there
 // is no key to keep (FIRESTORE_TOKEN overrides it, for a one-off run from a laptop).
-import { empty, type Db, type Idea, type Intro, type JsonStore, type User } from "./store.js";
+import { empty, type Db, type Idea, type Intro, type JsonStore, type Msg, type User } from "./store.js";
 
-const KINDS = ["users", "ideas", "intros"] as const;
+const KINDS = ["users", "ideas", "intros", "messages"] as const;
 type Kind = (typeof KINDS)[number];
 type Rows = Record<Kind, Map<string, string>> & { order: string };
 
@@ -16,10 +16,11 @@ const rowsOf = (db: Readonly<Db>): Rows => ({
   users: new Map(Object.values(db.users).map((u) => [u.id, JSON.stringify(u)])),
   ideas: new Map(db.ideas.map((i) => [i.id, JSON.stringify(i)])),
   intros: new Map(db.intros.map((x) => [x.id, JSON.stringify(x)])),
+  messages: new Map((db.messages ?? []).map((m) => [m.id, JSON.stringify(m)])),
   order: orderOf(db),
 });
 
-const none = (): Rows => ({ users: new Map(), ideas: new Map(), intros: new Map(), order: "" });
+const none = (): Rows => ({ users: new Map(), ideas: new Map(), intros: new Map(), messages: new Map(), order: "" });
 
 /** Firestore doc ids can't hold "/". Handles are phone numbers and emails; anything odd is spelled out. */
 const docId = (id: string) => id.replace(/[^A-Za-z0-9@._+-]/g, (c) => `~${c.charCodeAt(0).toString(16)}`);
@@ -84,11 +85,12 @@ export class Mirror {
         for (const d of r.documents ?? []) {
           const json = d.fields?.json?.stringValue;
           if (!json) continue;
-          const row = JSON.parse(json) as User & Idea & Intro;
+          const row = JSON.parse(json) as User & Idea & Intro & Msg;
           rows[kind].set(row.id, json);
           if (kind === "users") db.users[row.id] = row;
           else if (kind === "ideas") db.ideas.push(row);
-          else db.intros.push(row);
+          else if (kind === "intros") db.intros.push(row);
+          else db.messages.push(row);
         }
         page = r.nextPageToken ?? "";
       } while (page);
@@ -102,6 +104,8 @@ export class Mirror {
     };
     db.ideas = sort(db.ideas, order.ideas);
     db.intros = sort(db.intros, order.intros);
+    // Message ids start with their time, so they sort themselves.
+    db.messages.sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
     rows.order = meta ? orderOf(db) : "";
     return { db, rows };
   }
