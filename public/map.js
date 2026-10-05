@@ -195,6 +195,8 @@
     const tags = node("div", "tags");
     view.append(art, tags);
     view.tips = new Map(); // where each branch ends, so a zoom knows where to aim
+    view.limbs = new Map(); // where each branch starts and ends, so a zoom can stand it upright
+    view.ground = { x: W / 2, y: H - (W < 640 ? 26 : 40) };
     const kids = m.kids, n = kids.length;
     if (!n) return view;
 
@@ -242,7 +244,7 @@
       const y = baseY + 12 - (i / 18) * (trunkH + 12);
       return { y, ...at(y) };
     });
-    const up = svg("g", { class: m.level ? "up" : "" });
+    const up = svg("g", { class: m.level ? "trunk up" : "trunk" });
     up.append(
       svg("path", { class: "bark", d: `M${spine.map((p) => `${r1(p.x - p.w / 2)},${r1(p.y)}`).join(" L")} L${[...spine].reverse().map((p) => `${r1(p.x + p.w / 2)},${r1(p.y)}`).join(" L")} Z` }),
       svg("circle", { class: "bark", cx: r1(spine[18].x), cy: r1(spine[18].y), r: r1(spine[18].w / 2) }),
@@ -342,11 +344,12 @@
         if (fork) puffs.push([tipF, 1.1]);
         // The crown: one soft mass per branch, lighter where it faces up.
         const middle = puffs.reduce((sum, [p]) => sum + p.y, 0) / puffs.length;
-        for (const [p, size] of puffs) (p.y < middle ? lights : crowns).append(svg("circle", { class: `crown ${p.y < middle ? "hi" : "lo"}`, cx: r1(p.x), cy: r1(p.y), r: r1(bush * size) }));
+        for (const [p, size] of puffs) (p.y < middle ? lights : crowns).append(svg("circle", { class: `crown ${p.y < middle ? "hi" : "lo"}`, "data-k": i, cx: r1(p.x), cy: r1(p.y), r: r1(bush * size) }));
       }
       g.append(svg("circle", { class: "hit", cx: r1(T.x), cy: r1(T.y), r: r1(past + 10) }));
       limbs.append(g);
       view.tips.set(k.key, T);
+      view.limbs.set(k.key, { A, T, i: String(i) });
 
       const tag = node("button", `tag ${side < 0 ? "l" : "r"}`);
       tag.type = "button";
@@ -396,7 +399,7 @@
     };
     add("All ideas", [], !path.length);
     path.forEach((name, i) => {
-      nav.append(node("i", "", "/"));
+      nav.append(node("i", "", "›"));
       add(name, path.slice(0, i + 1), i === path.length - 1);
     });
     $("hint").textContent = ["Tap a branch to zoom in", "Tap a branch to read its ideas", "Tap an idea for its score"][path.length];
@@ -423,28 +426,61 @@
       views.append(fresh);
       void fresh.offsetWidth;
       fresh.classList.remove("from-small");
-    } else if (how === "in") {
-      // Zooming in: the old tree rushes past, aimed at the branch that was tapped. That branch grows as the new trunk.
-      const aim = old.tips?.get(from.length ? `b:${next[0]}/${next[1]}` : `t:${next[0]}`);
-      old.style.transformOrigin = aim ? `${aim.x}px ${aim.y}px` : "50% 40%";
-      fresh.style.transformOrigin = ground;
-      fresh.classList.add("from-small");
-      views.append(fresh);
-      void fresh.offsetWidth;
-      old.classList.add("to-big");
-      fresh.classList.remove("from-small");
-      setTimeout(() => old.remove(), 720);
     } else {
-      // Zooming out: the reverse. The tree we were on shrinks back into the branch it is.
-      const aim = fresh.tips.get(next.length ? `b:${from[0]}/${from[1]}` : `t:${from[0]}`);
-      old.style.transformOrigin = ground;
-      fresh.style.transformOrigin = aim ? `${aim.x}px ${aim.y}px` : "50% 40%";
-      fresh.classList.add("from-big");
+      // Zooming in: the camera flies down the branch that was tapped and turns it upright, so it becomes
+      // the trunk of the next view. Zooming out plays the same move backwards.
+      const zin = how === "in";
+      const outer = zin ? old : fresh, inner = zin ? fresh : old;
+      const key = zin ? (from.length ? `b:${next[0]}/${next[1]}` : `t:${next[0]}`) : next.length ? `b:${from[0]}/${from[1]}` : `t:${from[0]}`;
+      const lb = outer.limbs?.get(key);
+      const G = inner.ground ?? { x: W / 2, y: H - 40 };
+      let fly = "scale(2.9)";
+      if (lb) {
+        const len = Math.hypot(lb.T.x - lb.A.x, lb.T.y - lb.A.y) || 1;
+        const sc = Math.max(1.8, Math.min(6, (H * 0.8) / len));
+        let rot = -90 - (Math.atan2(lb.T.y - lb.A.y, lb.T.x - lb.A.x) * 180) / Math.PI;
+        rot = ((rot + 540) % 360) - 180;
+        fly = `translate(${r1(G.x)}px, ${r1(G.y)}px) rotate(${r1(rot)}deg) scale(${r1(sc)}) translate(${r1(-lb.A.x)}px, ${r1(-lb.A.y)}px)`;
+      }
+      // Only the branch being flown down stays lit, the same as pointing at it.
+      const focus = (on) => {
+        if (!lb) return;
+        outer.classList.toggle("hot", on);
+        for (const e of outer.querySelectorAll("[data-k]")) e.classList.toggle("hot", on && e.dataset.k === lb.i);
+      };
+      focus(true);
+      const ease = "cubic-bezier(0.55, 0, 0.2, 1)";
+      outer.style.transformOrigin = "0 0";
+      inner.style.transformOrigin = `${r1(G.x)}px ${r1(G.y)}px`;
+      old.style.pointerEvents = "none";
+      fresh.style.transition = "none";
+      if (zin) {
+        fresh.style.opacity = "0";
+        fresh.style.transform = "scale(0.85)";
+      } else {
+        fresh.style.opacity = "0";
+        fresh.style.transform = fly;
+      }
       views.append(fresh);
       void fresh.offsetWidth;
-      old.classList.add("to-small");
-      fresh.classList.remove("from-big");
-      setTimeout(() => old.remove(), 720);
+      if (zin) {
+        old.style.transition = `transform 0.8s ${ease}, opacity 0.3s ease 0.5s`;
+        old.style.transform = fly;
+        old.style.opacity = "0";
+        fresh.style.transition = `transform 0.45s ease-out 0.45s, opacity 0.35s ease 0.45s`;
+      } else {
+        old.style.transition = "transform 0.35s ease-in, opacity 0.25s ease";
+        old.style.transform = "scale(0.85)";
+        old.style.opacity = "0";
+        fresh.style.transition = `transform 0.8s ${ease} 0.1s, opacity 0.3s ease 0.1s`;
+        setTimeout(() => focus(false), 750);
+      }
+      fresh.style.transform = "";
+      fresh.style.opacity = "";
+      setTimeout(() => {
+        old.remove();
+        fresh.style.transition = fresh.style.transformOrigin = "";
+      }, 950);
     }
     current = fresh;
     sign();
