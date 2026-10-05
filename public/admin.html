@@ -291,7 +291,7 @@ button { cursor: pointer; }
     if (!data.people.length) return $("who").replaceChildren(h("div", { class: "empty", text: "No conversations yet." }));
     $("who").replaceChildren(...data.people.map((p) => {
       const last = p.messages[p.messages.length - 1];
-      return h("button", { class: "person", type: "button", onclick: () => { open = p.key; renderPeople(); window.scrollTo(0, 0); } },
+      return h("button", { class: "person", type: "button", onclick: () => { open = p.key; renderPeople(); $("convo").scrollIntoView({ block: "start" }); } },
         h("b", { text: p.who }, p.name ? h("span", { text: p.name }) : null),
         h("time", { text: ago(p.last) }),
         h("p", { text: `${last.dir === "out" ? "SlopStop: " : ""}${last.text}` }));
@@ -330,7 +330,7 @@ button { cursor: pointer; }
 
   $("tab-ideas").onclick = () => { tab = "ideas"; render(); };
   $("tab-people").onclick = () => { tab = "people"; open = null; render(); };
-  $("back").onclick = () => { open = null; renderPeople(); };
+  $("back").onclick = () => { open = null; renderPeople(); $("people").scrollIntoView({ block: "start" }); };
   $("refresh").onclick = load;
   // Stay current while the page is open, without fighting a pending delete.
   setInterval(() => { if (!document.hidden && !armed && store.get()) load(); }, 20000);
