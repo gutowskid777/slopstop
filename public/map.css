@@ -47,6 +47,8 @@ a { color: inherit; }
 .join button:disabled { opacity: 0.6; cursor: default; }
 .join-note { margin: 8px 0 0; font-size: 14px; color: var(--mute); }
 .join-note:empty { display: none; }
+.spots { margin: 10px 0 0; font-size: 15px; font-weight: 600; color: var(--mute); }
+.spots b { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: var(--fruit); }
 .join-note.bad { color: #b3402a; font-weight: 600; }
 .join-done { margin-top: 14px; display: flex; align-items: center; gap: 14px; }
 .qr { flex: none; width: 150px; padding: 10px; border: 0; border-radius: 14px; background: #fff; }

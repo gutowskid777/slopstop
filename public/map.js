@@ -596,6 +596,16 @@
     $("panel").classList.remove("joining");
   }
 
+  // ---- spots: the line holds 100 people, so the page says how many are left
+  async function spots() {
+    const out = await fetch("/api/spots", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
+    const el = $("spots");
+    if (!out || out.left === null || out.left === undefined) return void (el.hidden = true);
+    el.innerHTML = out.left > 0 ? `<b>${out.left}</b> of ${out.cap} spots left` : `All ${out.cap} spots are taken.`;
+    el.hidden = false;
+  }
+  spots();
+
   // ---- text it: register the number, then hand them Messages with the first text started
   const pretty = (n) => (/^\+1\d{10}$/.test(n) ? `(${n.slice(2, 5)}) ${n.slice(5, 8)}-${n.slice(8)}` : n);
   $("join").addEventListener("submit", async (e) => {
@@ -608,6 +618,7 @@
       const res = await fetch("/api/join", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ phone: $("phone").value }) });
       const out = await res.json().catch(() => { throw new Error("Connection blip. Refresh the page and try again."); });
       if (!res.ok) throw new Error(out.error || "That didn't work. Try again.");
+      spots();
       $("qr").innerHTML = out.qr;
       $("join-open").href = out.link;
       $("join-done").hidden = false;

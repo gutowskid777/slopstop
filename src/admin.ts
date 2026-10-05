@@ -42,6 +42,15 @@ async function registeredCount() {
   return registered.n;
 }
 
+/** Photon Pro registers 100 people. The home page shows what's left; null while the line is offline. */
+export const SPOTS = 100;
+export async function spotsLeft() {
+  const n = await registeredCount();
+  return n === null ? null : Math.max(0, SPOTS - n);
+}
+/** A join just registered someone: count again on the next ask instead of waiting out the minute. */
+export const recount = () => void (registered.at = 0);
+
 export async function adminData(store: JsonStore) {
   const ideas = store.dump().ideas.filter((i) => !i.sample);
   const msgs = store.messages();

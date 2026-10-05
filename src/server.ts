@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { readFile } from "node:fs/promises";
 import { resolve, extname, normalize } from "node:path";
 import QRCode from "qrcode";
-import { adminApi, adminOn } from "./admin.js";
+import { adminApi, adminOn, recount, SPOTS, spotsLeft } from "./admin.js";
 import { mapPayload } from "./map.js";
 import { addUser, e164, online as photonOnline, textLink } from "./photon.js";
 import type { Out } from "./core.js";
@@ -89,6 +89,8 @@ export function startServer(opts: {
         return res.end(page);
       }
 
+      if (path === "/api/spots") return json(res, 200, { left: await spotsLeft(), cap: SPOTS });
+
       if (path === "/api/health") return json(res, 200, { ok: true, ...opts.status?.() });
 
       if (path.startsWith("/api/dev/") && req.method === "POST") {
@@ -115,6 +117,7 @@ export function startServer(opts: {
         if (joins.length >= 60) return json(res, 429, { error: "Lots of people joining right now. Try again in a few minutes." });
         joins.push(Date.now());
         const user = await addUser(phone);
+        recount();
         const link = textLink(user.id, OPENER);
         return json(res, 200, {
           link,
