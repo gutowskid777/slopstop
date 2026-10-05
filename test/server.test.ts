@@ -99,10 +99,15 @@ test("cutover merge: the laptop wins for everyone except the test numbers, whose
     intros: [{ id: "i1", a: me, b: "+1607555020", ideaA: "test-mine", ideaB: "theirs", status: "declined", created: "5" }],
     messages: [{ id: "m0", who: me, dir: "in", text: "server copy of a test number", at: "2026-10-04T00:30:00.000Z" }],
   };
-  const out = merge(laptop, server, new Set([me]));
+  // Read back from the server's log: one new bubble, and the same text the laptop also heard (kept once).
+  const extra = [
+    { id: "m3", who: me, dir: "out" as const, text: "here's your deck.", at: "2026-10-04T03:00:00.000Z" },
+    { id: "m4", who: me, dir: "in" as const, text: "laptop copy of a test number", at: "2026-10-04T01:00:04.000Z" },
+  ];
+  const out = merge(laptop, server, new Set([me]), extra);
   assert.deepEqual(out.ideas.map((i) => i.id), ["theirs", "late-theirs", "old-mine", "test-mine"]);
   assert.equal(out.users[me].name, "Dylan");
-  assert.deepEqual(out.messages.map((m) => m.id), ["m0", "m2"]);
+  assert.deepEqual(out.messages.map((m) => m.id), ["m0", "m1", "m2", "m3"]);
   assert.equal(out.users["+1607555021"].name, "New");
   assert.equal(out.intros.length, 1);
 });
