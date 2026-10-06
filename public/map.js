@@ -304,6 +304,8 @@
       // Where the branch comes out of the bark. A zoom cuts it here, so no stub runs on into the trunk.
       const E = pts.find((p) => Math.abs(p.x - at(p.y).x) > at(p.y).w / 2 + 1) ?? pts[1];
       g.append(svg("path", { class: "bark", d: limb(pts, w0, Math.max(1.5 * s, w0 * 0.1), k === leader ? 0 : 0.55) }));
+      // An invisible fat line along the branch, so a thin branch is as easy to hit as a thick one.
+      g.append(svg("path", { class: "reach", d: `M${pts.map((p) => `${r1(p.x)},${r1(p.y)}`).join(" L")}`, "stroke-width": r1(Math.max(narrow ? 26 : 30, w0 + 14)) }));
       const dir = heading(pts, last);
       const puffs = [];
       let spot = T; // where the name goes: just past the leaves

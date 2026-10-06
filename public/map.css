@@ -140,6 +140,7 @@ a { color: inherit; }
 /* A branch you can zoom into: its bark, leaves and name react as one. */
 .kid { cursor: zoom-in; transition: opacity 0.18s; }
 .kid .hit { fill: transparent; }
+.kid .reach { fill: none; stroke: transparent; stroke-linecap: round; pointer-events: stroke; }
 .view.l2 .kid { cursor: pointer; }
 .up { cursor: zoom-out; }
 /* Pointing at a branch: only that branch stays lit. The trunk, the other branches and their crowns step far back. */
