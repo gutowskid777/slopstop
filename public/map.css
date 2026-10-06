@@ -242,7 +242,9 @@ a { color: inherit; }
 /* Hover: the rest of the tree fades as one layer (no doubled-up joins), the lit branch is a copy drawn on top. */
 .woods { transition: opacity 0.18s; }
 .view.dim .woods { opacity: 0.16; }
-.litup { pointer-events: none; }
+/* The copy must never catch the mouse: its fat invisible "reach" lines set pointer-events themselves, which beat an
+   inherited none and made the copy and the original take turns under the pointer (flicker). */
+.litup, .litup * { pointer-events: none !important; }
 .litup .kid { filter: brightness(1.18) drop-shadow(0 0 10px rgba(127, 227, 173, 0.45)); }
 .litup .crown { filter: brightness(1.25); }
 .view.dim .tag:not(.hot) { opacity: 0.22; }
