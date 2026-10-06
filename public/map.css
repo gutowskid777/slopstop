@@ -144,15 +144,17 @@ a { color: inherit; }
 @keyframes ping { from { transform: scale(0.5); opacity: 0.9; } to { transform: scale(2.2); opacity: 0; } }
 
 /* A branch you can zoom into: its bark, leaves and name react as one. */
-.kid { cursor: zoom-in; transition: opacity 0.18s; }
+.kid { cursor: zoom-in; transition: opacity 0.18s, filter 0.18s; }
 .kid .hit { fill: transparent; }
 .kid .reach { fill: none; stroke: transparent; stroke-linecap: round; pointer-events: stroke; }
 .view.l2 .kid { cursor: pointer; }
 .up { cursor: zoom-out; }
 /* Pointing at a branch: only that branch stays lit. The trunk, the other branches and their crowns step far back. */
 .crown, .trunk, .hill { transition: opacity 0.18s, filter 0.18s; }
-.view.hot .kid:not(.hot), .view.hot .crown:not(.hot) { opacity: 0.14; }
-.view.hot .trunk, .view.hot .hill { opacity: 0.18; }
+/* Dim by darkening, not by see-through: transparent shapes stacked on each other showed the hidden joins as
+   triangles where branches overlap the trunk. Solid but dark, the overlaps stay invisible. */
+.view.hot .kid:not(.hot), .view.hot .crown:not(.hot) { filter: brightness(0.2) saturate(0.5); }
+.view.hot .trunk, .view.hot .hill { filter: brightness(0.24) saturate(0.5); }
 .view.hot .tag:not(.hot) { opacity: 0.22; }
 .view.hot .kid.hot { filter: brightness(1.18) drop-shadow(0 0 10px rgba(127, 227, 173, 0.45)); }
 .view.hot .crown.hot { filter: brightness(1.25); }
