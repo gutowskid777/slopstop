@@ -238,3 +238,11 @@ a { color: inherit; }
 /* Zooming out: the rest of the tree comes back slowly as the branch lands. */
 .view.settle .crown, .view.settle .trunk, .view.settle .hill, .view.settle .glow, .view.settle .tags { transition: opacity 0.45s ease; }
 .view.settle .kid { transition: opacity 0.45s ease, transform 0.55s ease; }
+
+/* Hover: the rest of the tree fades as one layer (no doubled-up joins), the lit branch is a copy drawn on top. */
+.woods { transition: opacity 0.18s; }
+.view.dim .woods { opacity: 0.16; }
+.litup { pointer-events: none; }
+.litup .kid { filter: brightness(1.18) drop-shadow(0 0 10px rgba(127, 227, 173, 0.45)); }
+.litup .crown { filter: brightness(1.25); }
+.view.dim .tag:not(.hot) { opacity: 0.22; }

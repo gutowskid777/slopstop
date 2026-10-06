@@ -240,7 +240,11 @@
 
     const canopy = svg("g", { class: m.level ? "" : "canopy" }), crowns = svg("g"), lights = svg("g"), limbs = svg("g");
     canopy.append(crowns, lights);
-    art.append(svg("ellipse", { class: "hill", cx: r1(W / 2), cy: r1(baseY + 48 * s), rx: r1(Math.min(W * 0.47, 380 * s + 90)), ry: r1(64 * s) }), canopy);
+    // Everything that steps back on hover lives in one group, so it fades as ONE layer: overlapping branch and trunk
+    // shapes never double up into visible joins. The lit branch is copied into "litup" on top, untouched by the fade.
+    const woods = svg("g", { class: "woods" }), litup = svg("g", { class: "litup" });
+    art.append(woods, litup);
+    woods.append(svg("ellipse", { class: "hill", cx: r1(W / 2), cy: r1(baseY + 48 * s), rx: r1(Math.min(W * 0.47, 380 * s + 90)), ry: r1(64 * s) }), canopy);
     const spine = Array.from({ length: 19 }, (_, i) => {
       const y = baseY + 12 - (i / 18) * (trunkH + 12);
       return { y, ...at(y) };
@@ -252,7 +256,7 @@
       svg("path", { class: "bark", d: `M${spine.map((p) => `${r1(p.x - p.w / 2)},${r1(p.y)}`).join(" L")} L${[...spine].reverse().map((p) => `${r1(p.x + p.w / 2)},${r1(p.y)}`).join(" L")} Z` }),
       svg("circle", { class: "bark", cx: r1(spine[18].x), cy: r1(spine[18].y), r: r1(spine[18].w / 2) }),
     );
-    art.append(up, limbs);
+    woods.append(up, limbs);
 
     let curK = ""; // the branch being drawn, so its leaf lights know whose they are
     const leaf = (g, x, y, a, size, idea) => {
@@ -392,8 +396,14 @@
     const glow = (k) => {
       if (k === lit) return;
       lit = k;
-      view.classList.toggle("hot", k != null);
+      view.classList.toggle("dim", k != null);
       for (const e of view.querySelectorAll("[data-k]")) e.classList.toggle("hot", e.dataset.k === k);
+      litup.replaceChildren();
+      if (k != null) for (const e of woods.querySelectorAll(`[data-k="${k}"]`)) {
+        const c = e.cloneNode(true);
+        c.removeAttribute("data-k");
+        litup.append(c);
+      }
     };
     // A new view (or a click) can land a branch under a mouse that never moved onto it. Light nothing until the
     // mouse really moves: the browser's own "pointer is over this now" events after a zoom come with no movement.
