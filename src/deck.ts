@@ -6,6 +6,8 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GoogleGenAI, Type } from "@google/genai";
+import { z } from "zod";
+import { claudeJson, claudeOn } from "./claude.js";
 import type { Idea } from "./store.js";
 
 export type DeckCopy = {
@@ -57,6 +59,18 @@ const schema = {
   required: ["oneLiner", "problem", "fix", "firstUsers", "moves", "picture"],
 };
 
+const claudeSchema = z.object({
+  oneLiner: z.string(),
+  problem: z.array(z.string()),
+  fix: z.array(z.string()),
+  firstUsers: z.array(z.string()),
+  moves: z.array(z.string()),
+  picture: z.string(),
+});
+
+/** Some model can write the deck's words. */
+const wordsOn = () => claudeOn() || Boolean(process.env.GEMINI_API_KEY);
+
 // What the model is told never to write, enforced anyway: no dashes, no emojis, no phone numbers or emails.
 const clean = (s: unknown) =>
   String(s ?? "")
@@ -83,7 +97,7 @@ export function tidyCopy(c: Partial<DeckCopy>, idea: Idea): DeckCopy {
 
 /** The words for the deck. One call, with the same fallback models the scorer uses; no key means a plain stub. */
 export async function writeCopy(idea: Idea, facts: string[]): Promise<DeckCopy> {
-  if (!process.env.GEMINI_API_KEY) return tidyCopy({}, idea);
+  if (!wordsOn()) return tidyCopy({}, idea);
   const prompt = [
     `IDEA: ${idea.title}. ${idea.gist}`,
     `IN THEIR WORDS: ${clean(idea.text).slice(0, 800)}`,
@@ -93,6 +107,15 @@ export async function writeCopy(idea: Idea, facts: string[]): Promise<DeckCopy> 
     .filter(Boolean)
     .join("\n");
   let last: unknown;
+  if (claudeOn()) {
+    try {
+      return tidyCopy(await claudeJson({ schema: claudeSchema, system: SYSTEM, prompt, timeoutMs: 40_000 }), idea);
+    } catch (err) {
+      last = err;
+      console.error(`deck: claude failed, ${String((err as Error)?.message ?? err).slice(0, 140)}`);
+    }
+  }
+  if (!process.env.GEMINI_API_KEY) throw last;
   for (const model of models()) {
     try {
       const res = await ai().models.generateContent({
@@ -270,7 +293,7 @@ const run = (file: string, args: string[], ms: number) =>
 /** Print the deck to a PDF. Cached per idea and score, so asking twice never prints twice. Returns the file path. */
 export async function renderDeck(idea: Idea, c: DeckCopy, picture?: string): Promise<string> {
   mkdirSync(DIR, { recursive: true });
-  const pdf = join(DIR, `${idea.id}-${idea.score}-v2.pdf`);
+  const pdf = join(DIR, `${idea.id}-${idea.score}-v2${picture ? "" : "-plain"}.pdf`);
   if (existsSync(pdf)) return pdf;
   const work = mkdtempSync(join(tmpdir(), "slopstop-deck-"));
   try {
@@ -303,7 +326,7 @@ export function copyFor(idea: Idea, facts: string[]): Promise<DeckCopy> {
   const job = writeCopy(idea, facts)
     .then((c) => {
       mkdirSync(DIR, { recursive: true });
-      if (process.env.GEMINI_API_KEY) writeFileSync(file, JSON.stringify(c));
+      if (wordsOn()) writeFileSync(file, JSON.stringify(c));
       return c;
     })
     .finally(() => writing.delete(file));
@@ -324,13 +347,15 @@ export async function imageFor(idea: Idea, facts: string[]): Promise<ImageResult
   return { miss: imagesLeft() <= 0 ? "cap" : "fail" };
 }
 
-/** The whole thing: words, then the picture, then the PDF. */
+/** The whole thing: words, then the PDF. Pictures are drawn only when someone texts "image" (they are most of the
+ *  Gemini bill), so a deck carries the picture only once one exists. DECK_PICTURES=1 draws one for every deck again. */
 export async function makeDeck(idea: Idea, facts: string[]): Promise<string> {
-  const cached = join(DIR, `${idea.id}-${idea.score}-v2.pdf`);
+  const drawn = existsSync(pictureFile(idea));
+  const cached = join(DIR, `${idea.id}-${idea.score}-v2${drawn ? "" : "-plain"}.pdf`);
   if (existsSync(cached)) return cached;
   const copy = await copyFor(idea, facts);
   // The picture is a bonus: if it fails, is over the daily cap or takes too long, the deck ships without it.
-  const picture = await makePicture(idea, copy.picture).catch(() => undefined);
+  const picture = drawn ? pictureFile(idea) : process.env.DECK_PICTURES === "1" ? await makePicture(idea, copy.picture).catch(() => undefined) : undefined;
   return renderDeck(idea, copy, picture);
 }
 

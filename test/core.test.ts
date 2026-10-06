@@ -203,16 +203,16 @@ test("me reads back what it knows, and me: replaces it and re-reads the last ide
   assert.match(w.said("+15550001"), /what i know: cornell sophomore, i run a club\./);
 });
 
-test("a 70+ idea earns the picture then the deck, last, after the score and the connection", async () => {
+test("a 70+ idea earns the deck, last, after the score and the connection; the picture waits for 'image'", async () => {
   const w = world(() => ({ problem: 9, fix: 2 }));
   const decks: string[] = [];
-  const deps = { store: w.store, send: async (to: string, out: Out[]) => void w.sent.push({ to, out }), brain: async () => read({ problem: 9, fix: 2 }), embed: async () => undefined, judge: async () => true, deck: async (i: { id: string }) => (decks.push(i.id), `/tmp/${i.id}.pdf`), image: async () => ({ path: "/tmp/p.png", mimeType: "image/png" }) };
+  const pictures: string[] = [];
+  const deps = { store: w.store, send: async (to: string, out: Out[]) => void w.sent.push({ to, out }), brain: async () => read({ problem: 9, fix: 2 }), embed: async () => undefined, judge: async () => true, deck: async (i: { id: string }) => (decks.push(i.id), `/tmp/${i.id}.pdf`), image: async (i: { id: string }) => (pictures.push(i.id), { path: "/tmp/p.png", mimeType: "image/png" }) };
   await handle("+15550001", "a text line for open library seats", deps);
   const out = w.sent.filter((s) => s.to === "+15550001").flatMap((s) => s.out);
   assert.equal(decks.length, 1);
-  assert.match(out.map((o) => (o.type === "text" ? o.text : `[${o.type}]`)).join("\n"), /^\[react\]\n80\/100[\s\S]*nobody's near this yet[\s\S]*\[file\]\nit's a build\. here's your deck\.\n\[file\]$/);
-  const pic = out.at(-3);
-  assert.ok(pic?.type === "file" && pic.mimeType === "image/png" && /\.png$/.test(pic.name));
+  assert.equal(pictures.length, 0, "no picture drawn until they ask");
+  assert.match(out.map((o) => (o.type === "text" ? o.text : `[${o.type}]`)).join("\n"), /^\[react\]\n80\/100[\s\S]*nobody's near this yet[\s\S]*\nit's a build\. here's your deck\. text image for a product photo\.\n\[file\]$/);
   const file = out.at(-1);
   assert.ok(file?.type === "file" && file.mimeType === "application/pdf" && /pitch deck\.pdf$/.test(file.name));
 });

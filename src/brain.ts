@@ -1,6 +1,8 @@
-// The judgment step: one inbound text in, one structured read out. Gemini rates the two inputs and
-// writes the words; score.ts does the math. No key = a crude offline stub so the rest still runs.
+// The judgment step: one inbound text in, one structured read out. Claude rates the two inputs and writes the
+// words (Gemini when Claude is off or failing); score.ts does the math. No key = a crude offline stub so the rest still runs.
 import { GoogleGenAI, Type } from "@google/genai";
+import { z } from "zod";
+import { claudeJson, claudeOn } from "./claude.js";
 
 export type Read = {
   kind: "idea" | "context" | "chat";
@@ -90,6 +92,24 @@ const schema = {
   required: ["kind", "title", "gist", "trunk", "branch", "problem", "fix", "verdict", "move"],
 };
 
+// The same shape for Claude. Every field is asked for every time: a model allowed to skip fields skips the ratings.
+const claudeSchema = z.object({
+  kind: z.enum(["idea", "context", "chat"]),
+  title: z.string(),
+  gist: z.string(),
+  trunk: z.string(),
+  branch: z.string(),
+  problem: z.number().int(),
+  fix: z.number().int(),
+  verdict: z.string(),
+  move: z.string(),
+  ask: z.enum(["none", "college", "self", "users"]),
+  more: z.boolean(),
+  fact: z.string(),
+  plays: z.array(z.string()),
+  reply: z.string(),
+});
+
 // The model is told the rules; this enforces the ones that can never slip into a text.
 const say = (s: unknown) =>
   String(s ?? "")
@@ -150,10 +170,26 @@ const models = () =>
 let client: GoogleGenAI | undefined;
 const ai = () => (client ??= new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! }));
 
-export const online = () => Boolean(process.env.GEMINI_API_KEY);
+const geminiOn = () => Boolean(process.env.GEMINI_API_KEY);
+/** Some brain is there to read texts. */
+export const online = () => geminiOn() || claudeOn();
+
+/** A read with no ratings or no words is a failed read, not a zero. */
+const usable = (r: Read) => r.kind === "chat" || (r.problem > 0 && Boolean(r.verdict));
 
 export async function read(text: string, ctx: BrainContext): Promise<Read> {
   if (!online()) return stub(text, ctx);
+  if (claudeOn()) {
+    try {
+      const r = tidy((await claudeJson({ schema: claudeSchema, system: SYSTEM, prompt: brief(text, ctx), image: ctx.image })) as Partial<Read>);
+      if (!usable(r)) throw new Error("empty read");
+      if (process.env.DEBUG_BRAIN) console.error("brain: claude");
+      return r;
+    } catch (err) {
+      console.error(`brain: claude failed, ${String((err as Error)?.message ?? err).slice(0, 160)}; trying gemini`);
+      if (!geminiOn()) throw err;
+    }
+  }
   const parts: object[] = [{ text: brief(text, ctx) }];
   if (ctx.image) parts.push({ inlineData: { mimeType: ctx.image.mimeType, data: ctx.image.data.toString("base64") } });
   let last: unknown;
@@ -169,8 +205,7 @@ export async function read(text: string, ctx: BrainContext): Promise<Read> {
           config: { systemInstruction: SYSTEM, responseMimeType: "application/json", responseSchema: schema, temperature: 0, httpOptions: { timeout: 10_000 } },
         });
         const r = tidy(JSON.parse(res.text ?? "{}"));
-        // A read with no ratings or no words is a failed read, not a zero.
-        if (r.kind !== "chat" && (!r.problem || !r.verdict)) throw new Error("empty read");
+        if (!usable(r)) throw new Error("empty read");
         if (process.env.DEBUG_BRAIN) console.error(`brain: ${model}`);
         return r;
       } catch (err) {
@@ -188,6 +223,14 @@ export async function read(text: string, ctx: BrainContext): Promise<Read> {
 export async function judge(a: { title: string; gist: string }, b: { title: string; gist: string }): Promise<boolean | undefined> {
   if (!online()) return undefined;
   const prompt = `Two builders each texted an idea.\nA: ${a.title}. ${a.gist}\nB: ${b.title}. ${b.gist}\nWould these two get real value from meeting because they are working on the same problem for the same kind of person? Sharing an audience (both for students) or a format (both text bots) is not enough.`;
+  if (claudeOn()) {
+    try {
+      return (await claudeJson({ schema: z.object({ same: z.boolean() }), prompt, timeoutMs: 15_000, maxTokens: 2000 })).same;
+    } catch (err) {
+      console.error(`brain: judge on claude failed, ${String((err as Error)?.message ?? err).slice(0, 120)}`);
+      if (!geminiOn()) return undefined;
+    }
+  }
   for (const model of [...models().slice(1, 2), ...models().slice(0, 1)]) {
     try {
       const res = await ai().models.generateContent({
@@ -205,7 +248,8 @@ export async function judge(a: { title: string; gist: string }, b: { title: stri
 
 /** A unit vector for "how close are two ideas". Undefined when offline or the call fails: matching falls back to branches. */
 export async function embed(text: string): Promise<number[] | undefined> {
-  if (!online()) return undefined;
+  // Claude has no embeddings. This stays on Gemini, and costs a fraction of a cent.
+  if (!geminiOn()) return undefined;
   try {
     const res = await ai().models.embedContent({
       model: process.env.GEMINI_EMBED_MODEL || "gemini-embedding-001",

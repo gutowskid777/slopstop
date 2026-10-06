@@ -64,8 +64,8 @@ const copy = {
   declinedB: "all good. they're not told why.",
   passed: "they're heads down rn. i'll flag the next close one.",
   noMap: "the map isn't public yet. ask whoever showed you this.",
-  deckEarned: "it's a build. here's your deck.",
-  deckEarnedNow: "it's a build now. here's your deck.",
+  deckEarned: "it's a build. here's your deck. text image for a product photo.",
+  deckEarnedNow: "it's a build now. here's your deck. text image for a product photo.",
   deckMaking: "making your deck, one sec.",
   deckHere: "here's your deck.",
   deckDown: "deck's not working rn, try again in a min.",
@@ -341,13 +341,14 @@ export async function handle(sender: string, raw: string, d: Deps, image?: Brain
       await say(t(question));
     } else await offerIntro(idea, store.user(sender), d);
   }
-  // A 70 is a build. A build earns the picture and the deck, last, so the score and the connection land first.
+  // A 70 is a build. A build earns the deck, last, so the score and the connection land first.
   if (s >= 70) await sendBuild(idea, sender, copy.deckEarned, d);
 }
 
-/** A build: the product picture first, then the deck. The deck reuses the same picture, so it's one drawing, not two. */
+/** A build: the deck. The product picture is drawn only when they text "image" (pictures are most of the model bill);
+ *  the deck carries it once it exists. AUTO_PICTURE=1 sends the picture with every build again. */
 async function sendBuild(idea: Idea, to: string, line: string, d: Deps) {
-  await sendImage(idea, to, d);
+  if (process.env.AUTO_PICTURE === "1") await sendImage(idea, to, d);
   await sendDeck(idea, to, line, d);
 }
 
