@@ -308,8 +308,6 @@ export async function handle(sender: string, raw: string, d: Deps, image?: Brain
     verdict: r.verdict,
     move: r.move,
     private: PRIVATE.test(text),
-    // Matching reads the gist: who it is for and the problem, not the form factor.
-    vec: await (d.embed ?? embedBrain)(r.gist || r.title),
     created: new Date().toISOString(),
   };
   store.addIdea(idea);
@@ -326,6 +324,10 @@ export async function handle(sender: string, raw: string, d: Deps, image?: Brain
   if (idea.private) out.push(t(copy.private));
   // The score goes out first. Working out who is close happens while they are reading it.
   await say(...out);
+  // Matching reads the gist: who it is for and the problem, not the form factor. Done after the score is out, so the
+  // embedding call never sits between their text and the first reply. Private ideas get one too, for "public" later.
+  idea.vec = await (d.embed ?? embedBrain)(r.gist || r.title);
+  store.saveIdea(idea);
   if (!idea.private) {
     await link(idea, d);
     d.changed?.();

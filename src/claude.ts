@@ -6,7 +6,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import type { z } from "zod";
 
-const MODEL = () => process.env.CLAUDE_MODEL || "claude-opus-5-5";
+// Sonnet: Dylan's call (10-05), a reply in ~3s. Opus took ~9s and long waits lose people.
+const MODEL = () => process.env.CLAUDE_MODEL || "claude-sonnet-5-5";
 /** How long Claude sits out after a billing or auth failure. */
 const REST_MS = Number(process.env.CLAUDE_REST_MS ?? 15 * 60_000);
 
