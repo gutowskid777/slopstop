@@ -85,7 +85,8 @@ const NOT_A_NAME = new Set(
 
 /** A short yes or no, plus a first name if they tacked one on ("yes dylan", "yeah i'm Rithik"). */
 export function yesNo(text: string): { yes: boolean; name?: string } | undefined {
-  const s = text.trim().replace(/[.!]+$/, "");
+  // "Yes?" is still a yes: the question mark is tone, not a question.
+  const s = text.trim().replace(/[.!?]+$/, "");
   if (NO.test(s)) return s.split(/\s+/).length <= 3 ? { yes: false } : undefined;
   if (!YES.test(s)) return undefined;
   // Whatever follows the yes has to be a name and nothing else, or this is a sentence, not an answer.
@@ -97,6 +98,12 @@ export function yesNo(text: string): { yes: boolean; name?: string } | undefined
   const words = rest.split(/\s+/);
   if (words.length > 2 || words.some((w) => !/^\p{L}[\p{L}'-]*$/u.test(w) || NOT_A_NAME.has(w.toLowerCase()))) return undefined;
   return { yes: true, name: words.map((w) => w[0].toUpperCase() + w.slice(1)).join(" ") };
+}
+
+/** Code owns the score. A chat reply that states one (the model once said "-5 out of 100") gets the real one instead. */
+export function scoreless(reply: string, last?: Idea): string {
+  if (!/\b-?\d+\s*(?:\/|out of)\s*100\b|\bscore (?:is|was|of)\s*-?\d/i.test(reply)) return reply;
+  return last ? `your last idea, ${last.title}, is ${last.score}/100. text deck or image for more.` : copy.pitch;
 }
 
 /** A reaction, not a message: nothing here needs an answer. */
@@ -157,7 +164,9 @@ export async function handle(sender: string, raw: string, d: Deps, image?: Brain
     const theirs = store.idea((intro?.a === sender ? intro?.ideaB : intro?.ideaA) ?? "");
     if (ACK.test(bare)) return say(t(copy.introAck));
     if (/^(maybe|later|not yet|idk|i don'?t know|let me think|hm+)\b/.test(bare) && count(bare) <= 5) return say(t(copy.introLater));
-    if (theirs && /^(who|what|which|tell me|more|details|whats|what's)\b/.test(bare) && count(bare) <= 8) {
+    // Only a question about them ("who is it", "what's their idea"). "what should i use you for" is not one.
+    const aboutThem = /^(who|which|tell me|more|details)\b/.test(bare) || /\b(they|them|their|theirs|person|builder|idea|it)\b/.test(bare);
+    if (theirs && /^(who|what|which|tell me|more|details|whats|what's)\b/.test(bare) && aboutThem && count(bare) <= 8) {
       return say(t(`can't say who until they're in too. they're on "${theirs.title}" (${theirs.score}/100). yes or no?`));
     }
   }
@@ -286,7 +295,7 @@ export async function handle(sender: string, raw: string, d: Deps, image?: Brain
 
   if (r.kind === "chat" || (r.kind === "context" && !last)) {
     store.saveUser(user);
-    if (r.kind === "chat" && r.reply) return say(t(r.reply));
+    if (r.kind === "chat" && r.reply) return say(t(scoreless(r.reply, last)));
     // Nothing worth saying back. Someone who has not sent an idea yet still gets told what this is.
     return store.ideasBy(sender).length ? undefined : say(t(copy.pitch));
   }

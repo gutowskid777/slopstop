@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { handle, yesNo, type Out } from "../src/core.js";
+import { handle, scoreless, yesNo, type Out } from "../src/core.js";
 import { score, call } from "../src/score.js";
 import { JsonStore } from "../src/store.js";
 import type { Read } from "../src/brain.js";
@@ -50,6 +50,22 @@ test("a short yes carries a name; a sentence that starts with yes is not an answ
   assert.equal(yesNo("yeah im a sophomore at cornell"), undefined);
   assert.equal(yesNo("no idea what this is tbh"), undefined);
   assert.equal(yesNo("ok"), undefined);
+  assert.deepEqual(yesNo("Yes?"), { yes: true });
+  assert.deepEqual(yesNo("no?"), { yes: false });
+});
+
+test("BRH-21: a question that isn't about them skips the teaser; a chat reply never invents a score", async () => {
+  const w = world((t) => (/use you for/.test(t) ? { kind: "chat", reply: "text me an idea, your score is -5 out of 100." } : {}));
+  await w.text("+15550001", "open library seats by text");
+  await w.text("+15550002", "library seat tracker");
+  await w.text("+15550002", "What should I use you for");
+  assert.doesNotMatch(w.last("+15550002"), /can't say who/);
+  assert.match(w.last("+15550002"), /your last idea, Library seat finder, is 60\/100\./);
+  await w.text("+15550002", "what's their idea?");
+  assert.match(w.last("+15550002"), /can't say who until they're in too/);
+  await w.text("+15550002", "Yes?");
+  assert.equal(w.store.intros()[0].status, "asked");
+  assert.equal(scoreless("i rate the problem and the fix, then score = 10 x problem - 5 x fix."), "i rate the problem and the fix, then score = 10 x problem - 5 x fix.");
 });
 
 test("an idea gets one number out of 100 with the two inputs beside it", async () => {
