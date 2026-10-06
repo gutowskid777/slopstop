@@ -766,6 +766,15 @@
       $("qr").hidden = touch;
       $("join-how").innerHTML = touch ? "Opening Messages. Finish the sentence and send. Or text <b></b>" : "Scan it, or text <b></b>";
       $("join-how").querySelector("b").textContent = pretty(out.number);
+      // Someone who already has ideas can jump to them. The number rides along for this tab only (never in the URL),
+      // so /me can text the code straight away.
+      $("join-mine").hidden = !out.returning;
+      if (out.returning) {
+        const number = $("phone").value;
+        $("join-mine-go").onclick = () => {
+          try { sessionStorage.setItem("ss-me-phone", number); } catch {}
+        };
+      }
       // On a shared laptop the next person should not see this number, and the code needs the room.
       $("phone").value = "";
       $("panel").classList.add("joining");

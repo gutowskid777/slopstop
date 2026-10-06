@@ -188,7 +188,17 @@ a { color: inherit; }
     step("ask");
   };
 
-  load().catch(() => step("ask"));
+  // From the home page's "View your ideas": the number is already known, so the code goes out right away.
+  let handed = "";
+  try { handed = sessionStorage.getItem("ss-me-phone") || ""; sessionStorage.removeItem("ss-me-phone"); } catch {}
+  load()
+    .then(() => {
+      if (handed && !$("ask").hidden) {
+        $("phone").value = handed;
+        $("phone-form").requestSubmit();
+      }
+    })
+    .catch(() => step("ask"));
 })();
 </script>
 </body>

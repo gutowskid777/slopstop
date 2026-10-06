@@ -128,6 +128,8 @@ export function startServer(opts: {
           number: user.assignedPhoneNumber,
           sms: `sms:${user.assignedPhoneNumber}&body=${encodeURIComponent(OPENER)}`,
           qr: await QRCode.toString(link, { type: "svg", margin: 0, errorCorrectionLevel: "M", color: { dark: "#14261b", light: "#0000" } }),
+          // Someone who already has ideas gets a way to see them. Only a yes or no: what they are needs the texted code.
+          returning: store.ideasBy(phone).some((i) => !i.sample),
         });
       }
 
