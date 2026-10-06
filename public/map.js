@@ -388,11 +388,30 @@
     });
 
     // Pointing at a branch, its leaves or its name lights all three and lets the rest step back.
+    let lit;
     const glow = (k) => {
+      if (k === lit) return;
+      lit = k;
       view.classList.toggle("hot", k != null);
       for (const e of view.querySelectorAll("[data-k]")) e.classList.toggle("hot", e.dataset.k === k);
     };
-    view.addEventListener("pointerover", (e) => e.pointerType !== "touch" && glow(e.target.closest?.("[data-k]")?.dataset.k));
+    // A new view (or a click) can land a branch under a mouse that never moved onto it. Light nothing until the
+    // mouse really moves: the browser's own "pointer is over this now" events after a zoom come with no movement.
+    let still = true, from = null;
+    view.addEventListener("pointerdown", (e) => {
+      still = true;
+      from = [e.clientX, e.clientY];
+      glow(null);
+    });
+    view.addEventListener("pointermove", (e) => {
+      if (e.pointerType === "touch") return;
+      if (still) {
+        if (!from) return void (from = [e.clientX, e.clientY]);
+        if (Math.hypot(e.clientX - from[0], e.clientY - from[1]) < 4) return;
+        still = false;
+      }
+      glow(e.target.closest?.("[data-k]")?.dataset.k);
+    });
     view.addEventListener("pointerleave", () => glow(null));
     return view;
   }

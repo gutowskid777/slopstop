@@ -174,7 +174,7 @@ a { color: inherit; }
 .tag b { font-size: var(--fn, 21px); font-weight: 800; letter-spacing: -0.02em; }
 .tag span { font-size: var(--fc, 14.5px); color: var(--mute); }
 .tag em { font-size: var(--fc, 14.5px); font-style: normal; font-weight: 700; }
-.tag:hover b, .tag.hot b { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.tag.hot b { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
 
 /* One idea: its score, then its name. */
 .view.l2 .tag { display: flex; align-items: center; gap: 8px; cursor: pointer; }
