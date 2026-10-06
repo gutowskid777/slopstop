@@ -58,7 +58,13 @@ const status = () => ({
   firestore: mirror ? mirror.status : "off",
 });
 
-const web = startServer({ store, port: Number(process.env.PORT ?? 1290), play, ping, status });
+// /me sign-in codes go out on the same iMessage line. The code itself never reaches the log or /admin.
+const sendCode = async (to: string, text: string) => {
+  if (!agent || !reachable(to)) throw new Error("the agent is off");
+  await agent.direct(to, [{ type: "text", text }], "[sign-in code]");
+};
+
+const web = startServer({ store, port: Number(process.env.PORT ?? 1290), play, ping, status, sendCode });
 
 // The port is the lock: only connect to the line once we know we are the only copy running.
 await web.ready;

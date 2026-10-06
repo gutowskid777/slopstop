@@ -56,10 +56,11 @@ export async function startAgent(opts: {
       quiet("keep message")(err);
     }
   };
-  const said = (to: string, out: Out[]) => {
+  /** label stands in for the words in the log and on /admin (a sign-in code is nobody's business). */
+  const said = (to: string, out: Out[], label?: string) => {
     for (const o of out) {
-      console.log(`${stamp()} -> ${mask(to)}: ${plain(o).replace(/\n/g, " / ")}`);
-      keep(to, "out", plain(o));
+      console.log(`${stamp()} -> ${mask(to)}: ${(label ?? plain(o)).replace(/\n/g, " / ")}`);
+      keep(to, "out", label ?? plain(o));
     }
   };
   const heard = (from: string, text: string) => {
@@ -101,10 +102,10 @@ export async function startAgent(opts: {
   };
 
   /** Message someone on their own thread with the agent, whoever started the turn. */
-  const direct = async (to: string, out: Out[]) => {
+  const direct = async (to: string, out: Out[], label?: string) => {
     if (!reachable(to)) return opts.offline?.(to, out);
     if (!ours(to)) return console.log(`${stamp()} -> ${mask(to)}: held, the other copy answers them`);
-    said(to, out);
+    said(to, out, label);
     const dm = await im.space.create(await im.user(to));
     await deliver(dm, out);
   };

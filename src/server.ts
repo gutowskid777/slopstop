@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { resolve, extname, normalize } from "node:path";
 import QRCode from "qrcode";
 import { adminApi, adminOn, recount, SPOTS, spotsLeft } from "./admin.js";
+import { meApi, type SendCode } from "./signin.js";
 import { mapPayload } from "./map.js";
 import { addUser, e164, online as photonOnline, textLink } from "./photon.js";
 import type { Out } from "./core.js";
@@ -18,7 +19,7 @@ const TYPES: Record<string, string> = {
   ".png": "image/png",
   ".ico": "image/x-icon",
 };
-const PAGES: Record<string, string> = { "/": "index.html", "/graph": "graph.html" };
+const PAGES: Record<string, string> = { "/": "index.html", "/graph": "graph.html", "/me": "me.html" };
 /** What Messages opens with. They finish the sentence, so their first text is already the idea. */
 const OPENER = "my idea: ";
 
@@ -45,6 +46,8 @@ export function startServer(opts: {
   play?: (from: string, text: string) => Promise<Line[]>;
   /** Have the agent text a real number first. This machine only. */
   ping?: (to: string, text: string) => Promise<void>;
+  /** Text a sign-in code to a number on the line. Off when the agent is off. */
+  sendCode?: SendCode;
   /** What /api/health reports: the version, whether the line is up, whether the hosted copy is current. */
   status?: () => Record<string, unknown>;
 }) {
@@ -81,6 +84,7 @@ export function startServer(opts: {
       }
 
       if (await adminApi(req, res, path, store, () => body(req), broadcast)) return;
+      if (await meApi(req, res, path, store, () => body(req), opts.sendCode)) return;
       // The admin shell only exists while a passcode is set. Its data still needs the passcode.
       if (path === "/admin" || path === "/admin.html") {
         if (!adminOn()) return json(res, 404, { error: "Not found" });
