@@ -245,6 +245,8 @@
       const y = baseY + 12 - (i / 18) * (trunkH + 12);
       return { y, ...at(y) };
     });
+    // A zoom needs the trunk's outline, so the branch flying in can take its exact shape.
+    view.trunk = { at, top: baseY - trunkH, base: baseY + 12 };
     const up = svg("g", { class: m.level ? "trunk up" : "trunk" });
     up.append(
       svg("path", { class: "bark", d: `M${spine.map((p) => `${r1(p.x - p.w / 2)},${r1(p.y)}`).join(" L")} L${[...spine].reverse().map((p) => `${r1(p.x + p.w / 2)},${r1(p.y)}`).join(" L")} Z` }),
@@ -459,9 +461,9 @@
     }
     const G = inner.ground;
     const len = Math.hypot(lb.T.x - lb.A.x, lb.T.y - lb.A.y) || 1;
-    const sc = Math.max(1.4, Math.min(7, (G.y - (inner.top - 30)) / len));
-    // Stand up the lower part of the branch (it becomes the trunk) and let the tip keep its curve.
-    let rot = -90 - (Math.atan2(lb.P.y - lb.A.y, lb.P.x - lb.A.x) * 180) / Math.PI;
+    const tr = inner.trunk;
+    const sc = Math.max(1.2, Math.min(7, (G.y - tr.top) / len));
+    let rot = -90 - (Math.atan2(lb.T.y - lb.A.y, lb.T.x - lb.A.x) * 180) / Math.PI;
     rot = ((rot + 540) % 360) - 180;
     // Turn around the middle of the branch, and slide that middle straight to the middle of the new trunk.
     // Both ends are written as the same list of steps, so the browser blends them step by step: no swoop.
@@ -470,7 +472,21 @@
     const rest = pose(M, 0, 1);
     // Where the middle must end up so the cut end lands on the ground point.
     const c = Math.cos((rot * Math.PI) / 180), sn = Math.sin((rot * Math.PI) / 180), ex = (lb.A.x - M.x) * sc, ey = (lb.A.y - M.y) * sc;
-    const fly = pose({ x: G.x - (ex * c - ey * sn), y: G.y - (ex * sn + ey * c) }, rot, sc);
+    const Mto = { x: G.x - (ex * c - ey * sn), y: G.y - (ex * sn + ey * c) };
+    const fly = pose(Mto, rot, sc);
+
+    // While it flies, the branch bends into the next view's trunk: the same outline, worked back into this
+    // view's coordinates, drawn with the same steps as the branch so the browser can blend one into the other.
+    const back = (q) => {
+      const x = (q.x - Mto.x) / sc, y = (q.y - Mto.y) / sc;
+      return `${r1(M.x + x * c + y * sn)},${r1(M.y - x * sn + y * c)}`;
+    };
+    const rows = Array.from({ length: 25 }, (_, n) => {
+      const y = tr.base - (n / 24) * (tr.base - tr.top), { x, w } = tr.at(y);
+      return { y, x, w };
+    });
+    const tip = rows[24];
+    const trunkShape = `path("M${rows.map((r) => back({ x: r.x + r.w / 2, y: r.y })).join(" L")} Q${back({ x: tip.x, y: tip.y - tip.w * 0.6 })} ${[...rows].reverse().map((r) => back({ x: r.x - r.w / 2, y: r.y })).join(" L")} Z")`;
 
     // Cut the branch where it leaves the trunk: clip away everything behind that line.
     const art = outer.querySelector("svg");
@@ -481,6 +497,12 @@
     art.append(clip);
     const limb = outer.querySelector(`.kid[data-k="${lb.i}"]`);
     limb?.setAttribute("clip-path", `url(#${clip.id})`);
+    const wood = limb?.firstElementChild;
+    const branchShape = wood && `path("${wood.getAttribute("d")}")`;
+    if (wood) {
+      wood.style.transition = "none";
+      wood.style.d = zin ? branchShape : trunkShape;
+    }
     outer.classList.add("hot");
     for (const e of outer.querySelectorAll("[data-k]")) e.classList.toggle("hot", e.dataset.k === lb.i);
 
@@ -497,11 +519,19 @@
       old.style.transition = "none";
       old.style.transform = rest;
       void fresh.offsetWidth;
-      old.style.transition = `transform 0.75s ${ease}, opacity 0.15s ease 0.45s`;
+      old.style.transition = `transform 0.75s ${ease}, opacity 0.06s linear 0.82s`;
+      if (wood) {
+        wood.style.transition = `d 0.75s ${ease}`;
+        wood.style.d = trunkShape;
+      }
       old.style.transform = fly;
       old.style.opacity = "0";
       fresh.style.transition = "";
-      setTimeout(() => fresh.classList.remove("sprout"), 400);
+      // The new trunk only shows once the branch has become exactly that shape, so they swap in one frame.
+      const trunk = fresh.querySelector(".trunk");
+      trunk.style.transition = "opacity 0.04s linear 0.32s";
+      setTimeout(() => fresh.classList.remove("sprout"), 450);
+      setTimeout(() => (trunk.style.transition = ""), 1000);
     } else {
       fresh.classList.add("flying");
       fresh.style.transform = fly;
@@ -510,9 +540,14 @@
       void fresh.offsetWidth;
       // The small branches pull back into the trunk, then that trunk becomes the branch flying home.
       old.classList.add("wither");
-      old.style.transition = "opacity 0.15s ease 0.38s";
+      old.style.transition = "opacity 0.05s linear 0.37s";
       old.style.opacity = "0";
-      fresh.style.transition = `transform 0.7s ${ease} 0.35s, opacity 0.12s ease 0.36s`;
+      fresh.style.transition = `transform 0.7s ${ease} 0.35s, opacity 0.05s linear 0.35s`;
+      if (wood) {
+        void wood.getBoundingClientRect();
+        wood.style.transition = `d 0.7s ${ease} 0.35s`;
+        wood.style.d = branchShape;
+      }
       fresh.style.transform = rest;
       fresh.style.opacity = "";
       setTimeout(() => {
@@ -525,6 +560,7 @@
       old.remove();
       fresh.style.transition = fresh.style.transformOrigin = fresh.style.transform = "";
       for (const e of kids) e.style.transitionDelay = "";
+      if (wood) wood.style.d = wood.style.transition = "";
       if (!zin) {
         fresh.classList.remove("settle");
         limb?.removeAttribute("clip-path");
